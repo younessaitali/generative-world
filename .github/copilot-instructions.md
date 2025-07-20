@@ -89,6 +89,18 @@ const age = defineModel<number>('age')
 - Prefer named route locations for type safety: `router.push({ name: '/users/[userId]', params: { userId } })`
 - Pass the name of the route to `useRoute('/users/[userId]')` to get stricter types
 
+
+## API Endpoint Development
+
+- Use `defineEventHandler` for simple server API endpoints (e.g., in `server/api/`).
+- For endpoints requiring input validation (query parameters, request body), use `defineValidatedEventHandler`.
+  - Define validation schemas using Zod/v4 as specified in the "Input Validation" section.
+- For logic that needs to be applied across multiple endpoints (e.g., authentication checks, role validation), create reusable utilities or middleware functions.
+  - Encapsulate common logic within these utilities.
+  - Compose these utilities within your event handlers.
+  - Follow existing project patterns for creating such reusable utilities (like the pattern used for authentication checks).
+- **ALWAYS** use TypeScript for type safety in your event handlers.
+
 ## Essential Commands
 
 ```bash
@@ -199,3 +211,11 @@ Note: These are user-level servers available in all your projects.
 - `nuxt.config.ts`: Modules include @nuxt/eslint, @nuxt/ui
 - `eslint.config.mjs`: Uses Nuxt's built-in ESLint config
 - `tsconfig.json`: References Nuxt's generated TypeScript configs
+
+## Commit Messages
+
+- Use conventional commit format: `type(scope): message`
+- Types include: feat, fix, docs, style, refactor, test, chore
+- Keep commit messages concise but descriptive
+- Reference issue numbers when applicable
+- Use present tense in commit messages
