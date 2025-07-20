@@ -1,12 +1,108 @@
 <script setup lang="ts">
-import { useTemplateRef, onMounted } from 'vue'
-import { useEventListener } from '@vueuse/core'
+import { useTemplateRef, onMounted, watch } from 'vue'
+import { useEventListener, useDebounceFn } from '@vueuse/core'
 
 const canvas = useTemplateRef<HTMLCanvasElement>('canvas')
 const worldStore = useWorldStore()
 
+const CHUNK_SIZE = 16 // 16x16 cells per chunk
+const CELL_SIZE = 32 // pixels per cell when zoom = 1
+
 const isDragging = ref(false)
 const lastMousePosition = ref({ x: 0, y: 0 })
+const chunks = ref(new Map<string, number[][]>()) // Cache for loaded chunks
+
+const getChunkKey = (chunkX: number, chunkY: number) => `${chunkX},${chunkY}`
+
+const worldToChunk = (worldX: number, worldY: number) => {
+  return {
+    chunkX: Math.floor(worldX / (CHUNK_SIZE * CELL_SIZE)),
+    chunkY: Math.floor(worldY / (CHUNK_SIZE * CELL_SIZE))
+  }
+}
+
+const calculateVisibleChunks = () => {
+  if (!canvas.value) return []
+
+  const { camera } = worldStore
+
+  const viewportWidth = canvas.value.width / camera.zoom
+  const viewportHeight = canvas.value.height / camera.zoom
+
+  // Camera position represents the translation, so we need to account for it
+  const leftWorld = -camera.x - viewportWidth / 2
+  const rightWorld = -camera.x + viewportWidth / 2
+  const topWorld = -camera.y - viewportHeight / 2
+  const bottomWorld = -camera.y + viewportHeight / 2
+
+  const topLeftChunk = worldToChunk(leftWorld, topWorld)
+  const bottomRightChunk = worldToChunk(rightWorld, bottomWorld)
+
+  const padding = 1
+  const minChunkX = topLeftChunk.chunkX - padding
+  const maxChunkX = bottomRightChunk.chunkX + padding
+  const minChunkY = topLeftChunk.chunkY - padding
+  const maxChunkY = bottomRightChunk.chunkY + padding
+
+  const visibleChunks: Array<{ chunkX: number; chunkY: number }> = []
+
+  for (let chunkX = minChunkX; chunkX <= maxChunkX; chunkX++) {
+    for (let chunkY = minChunkY; chunkY <= maxChunkY; chunkY++) {
+      visibleChunks.push({ chunkX, chunkY })
+    }
+  }
+
+  return visibleChunks
+}
+
+const fetchChunk = async (chunkX: number, chunkY: number) => {
+  const chunkKey = getChunkKey(chunkX, chunkY)
+
+  if (chunks.value.has(chunkKey)) {
+    return chunks.value.get(chunkKey)
+  }
+
+  try {
+    const response = await $fetch<{
+      success: boolean
+      data: number[][]
+      coordinates: { x: number; y: number }
+      chunkSize: number
+      timestamp: string
+    }>('/api/world/chunk', {
+      query: { x: chunkX, y: chunkY }
+    })
+
+    if (response.success) {
+      chunks.value.set(chunkKey, response.data)
+      return response.data
+    }
+  } catch (error) {
+    console.error(`Failed to fetch chunk ${chunkKey}:`, error)
+  }
+
+  return null
+}
+
+const loadVisibleChunks = async () => {
+  const visibleChunks = calculateVisibleChunks()
+
+  const fetchPromises = visibleChunks.map(({ chunkX, chunkY }) => fetchChunk(chunkX, chunkY))
+
+  if (fetchPromises.length > 0) {
+    await Promise.all(fetchPromises)
+  }
+}
+
+const debouncedLoadChunks = useDebounceFn(loadVisibleChunks, 250)
+
+watch(
+  () => worldStore.camera,
+  () => {
+    debouncedLoadChunks()
+  },
+  { deep: true, immediate: true }
+)
 
 const resizeCanvas = () => {
   if (canvas.value) {
