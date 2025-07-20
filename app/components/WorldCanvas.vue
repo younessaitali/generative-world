@@ -38,9 +38,24 @@ const handleMouseUp = () => {
   isDragging.value = false
 }
 
+const handleWheel = (event: WheelEvent) => {
+  event.preventDefault()
+
+  if (!canvas.value) return
+
+  const rect = canvas.value.getBoundingClientRect()
+  const mouseX = event.clientX - rect.left
+  const mouseY = event.clientY - rect.top
+
+  const zoomDelta = -event.deltaY * 0.001
+
+  worldStore.zoomAtPoint(zoomDelta, mouseX, mouseY)
+}
+
 useEventListener(canvas, 'mousedown', handleMouseDown)
 useEventListener(window, 'mousemove', handleMouseMove)
 useEventListener(window, 'mouseup', handleMouseUp)
+useEventListener(canvas, 'wheel', handleWheel, { passive: false })
 useEventListener(window, 'resize', resizeCanvas)
 
 onMounted(() => {
