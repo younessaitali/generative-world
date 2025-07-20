@@ -52,6 +52,51 @@ const handleWheel = (event: WheelEvent) => {
   worldStore.zoomAtPoint(zoomDelta, mouseX, mouseY)
 }
 
+const render = () => {
+  if (!canvas.value) return
+
+  const ctx = canvas.value.getContext('2d')
+  if (!ctx) return
+
+  ctx.clearRect(0, 0, canvas.value.width, canvas.value.height)
+
+  const { camera } = worldStore
+
+  ctx.save()
+  ctx.scale(camera.zoom, camera.zoom)
+  ctx.translate(camera.x, camera.y)
+
+  ctx.fillStyle = '#3b82f6'
+  ctx.fillRect(-50, -50, 100, 100)
+
+  ctx.fillStyle = '#ef4444'
+  ctx.fillRect(200, 100, 50, 50)
+
+  ctx.strokeStyle = '#6b7280'
+  ctx.lineWidth = 1 / camera.zoom
+
+  const gridSize = 100
+  const startX = Math.floor(-camera.x / gridSize) * gridSize
+  const startY = Math.floor(-camera.y / gridSize) * gridSize
+  const endX = startX + (canvas.value.width / camera.zoom) + gridSize
+  const endY = startY + (canvas.value.height / camera.zoom) + gridSize
+
+  ctx.beginPath()
+  for (let x = startX; x <= endX; x += gridSize) {
+    ctx.moveTo(x, startY)
+    ctx.lineTo(x, endY)
+  }
+  for (let y = startY; y <= endY; y += gridSize) {
+    ctx.moveTo(startX, y)
+    ctx.lineTo(endX, y)
+  }
+  ctx.stroke()
+
+  ctx.restore()
+
+  requestAnimationFrame(render)
+}
+
 useEventListener(canvas, 'mousedown', handleMouseDown)
 useEventListener(window, 'mousemove', handleMouseMove)
 useEventListener(window, 'mouseup', handleMouseUp)
@@ -60,6 +105,7 @@ useEventListener(window, 'resize', resizeCanvas)
 
 onMounted(() => {
   resizeCanvas()
+  requestAnimationFrame(render)
 })
 </script>
 
