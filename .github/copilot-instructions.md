@@ -21,6 +21,7 @@ This is a **Nuxt.js 4** application with **@nuxt/ui** integration. The codebase 
 - **DO NOT** hard code colors, use Tailwind's color system
 - **ALWAYS** use named functions when declaring methods, use arrow functions only for callbacks
 - **ALWAYS** prefer named exports over default exports
+- **ALWAYS** check if a function exists in VueUse before implementing custom utilities or event handlers
 - ONLY add meaningful comments that explain why something is done, not what it does
 - Dev server runs on `http://localhost:3000` with HMR enabled. NEVER launch it yourself
 
@@ -32,6 +33,9 @@ This is a **Nuxt.js 4** application with **@nuxt/ui** integration. The codebase 
 ### Vue Component Conventions
 - Name files consistently using PascalCase (`UserProfile.vue`)
 - **ALWAYS** use PascalCase for component names in source code
+- **ALWAYS** use TypeScript for all Vue components with `<script setup lang="ts">`
+- **ALWAYS** place the `<script setup lang="ts">` tag at the top of .vue files (before template and style)
+- **ALWAYS** use `useTemplateRef<ElementType>('refName')` for template refs, NOT `ref(null)`
 - Compose names from the most general to the most specific: `SearchButtonClear.vue` not `ClearSearchButton.vue`
 - **ALWAYS** define props with `defineProps<{ propOne: number }>()` and TypeScript types, WITHOUT `const props =`
 - Use `const props =` ONLY if props are used in the script block
