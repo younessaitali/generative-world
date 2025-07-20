@@ -1,7 +1,12 @@
 <script setup lang="ts">
-import { useTemplateRef, onMounted, onUnmounted } from 'vue'
+import { useTemplateRef, onMounted } from 'vue'
+import { useEventListener } from '@vueuse/core'
 
 const canvas = useTemplateRef<HTMLCanvasElement>('canvas')
+const worldStore = useWorldStore()
+
+const isDragging = ref(false)
+const lastMousePosition = ref({ x: 0, y: 0 })
 
 const resizeCanvas = () => {
   if (canvas.value) {
@@ -13,13 +18,33 @@ const resizeCanvas = () => {
   }
 }
 
+const handleMouseDown = (event: MouseEvent) => {
+  isDragging.value = true
+  lastMousePosition.value = { x: event.clientX, y: event.clientY }
+}
+
+const handleMouseMove = (event: MouseEvent) => {
+  if (!isDragging.value) return
+
+  const deltaX = event.clientX - lastMousePosition.value.x
+  const deltaY = event.clientY - lastMousePosition.value.y
+
+  worldStore.panCamera(deltaX, deltaY)
+
+  lastMousePosition.value = { x: event.clientX, y: event.clientY }
+}
+
+const handleMouseUp = () => {
+  isDragging.value = false
+}
+
+useEventListener(canvas, 'mousedown', handleMouseDown)
+useEventListener(window, 'mousemove', handleMouseMove)
+useEventListener(window, 'mouseup', handleMouseUp)
+useEventListener(window, 'resize', resizeCanvas)
+
 onMounted(() => {
   resizeCanvas()
-  window.addEventListener('resize', resizeCanvas)
-})
-
-onUnmounted(() => {
-  window.removeEventListener('resize', resizeCanvas)
 })
 </script>
 
