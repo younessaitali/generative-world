@@ -10,7 +10,7 @@ const CELL_SIZE = 32 // pixels per cell when zoom = 1
 
 const isDragging = ref(false)
 const lastMousePosition = ref({ x: 0, y: 0 })
-const chunks = ref(new Map<string, number[][]>()) // Cache for loaded chunks
+const chunks = ref(new Map<string, number[][]>())
 
 const getChunkKey = (chunkX: number, chunkY: number) => `${chunkX},${chunkY}`
 
@@ -29,11 +29,11 @@ const calculateVisibleChunks = () => {
   const viewportWidth = canvas.value.width / camera.zoom
   const viewportHeight = canvas.value.height / camera.zoom
 
-  // Camera position represents the translation, so we need to account for it
-  const leftWorld = -camera.x - viewportWidth / 2
-  const rightWorld = -camera.x + viewportWidth / 2
-  const topWorld = -camera.y - viewportHeight / 2
-  const bottomWorld = -camera.y + viewportHeight / 2
+  const leftWorld = -camera.x
+  const topWorld = -camera.y
+
+  const rightWorld = leftWorld + viewportWidth
+  const bottomWorld = topWorld + viewportHeight
 
   const topLeftChunk = worldToChunk(leftWorld, topWorld)
   const bottomRightChunk = worldToChunk(rightWorld, bottomWorld)
@@ -162,31 +162,51 @@ const render = () => {
   ctx.scale(camera.zoom, camera.zoom)
   ctx.translate(camera.x, camera.y)
 
-  ctx.fillStyle = '#3b82f6'
-  ctx.fillRect(-50, -50, 100, 100)
+  const visibleChunks = calculateVisibleChunks()
 
-  ctx.fillStyle = '#ef4444'
-  ctx.fillRect(200, 100, 50, 50)
+  for (const { chunkX, chunkY } of visibleChunks) {
+    const chunkKey = getChunkKey(chunkX, chunkY)
+    const chunkData = chunks.value.get(chunkKey)
 
-  ctx.strokeStyle = '#6b7280'
-  ctx.lineWidth = 1 / camera.zoom
+    if (chunkData) {
+      const chunkWorldX = chunkX * CHUNK_SIZE * CELL_SIZE
+      const chunkWorldY = chunkY * CHUNK_SIZE * CELL_SIZE
 
-  const gridSize = 100
-  const startX = Math.floor(-camera.x / gridSize) * gridSize
-  const startY = Math.floor(-camera.y / gridSize) * gridSize
-  const endX = startX + (canvas.value.width / camera.zoom) + gridSize
-  const endY = startY + (canvas.value.height / camera.zoom) + gridSize
+      for (let row = 0; row < CHUNK_SIZE; row++) {
+        for (let col = 0; col < CHUNK_SIZE; col++) {
+          const cellRow = chunkData[row]
+          if (cellRow) {
+            const cellValue = cellRow[col]
 
-  ctx.beginPath()
-  for (let x = startX; x <= endX; x += gridSize) {
-    ctx.moveTo(x, startY)
-    ctx.lineTo(x, endY)
+            if (cellValue === 0) {
+              ctx.fillStyle = '#3b82f6'
+            } else if (cellValue === 1) {
+              ctx.fillStyle = '#22c55e'
+            } else {
+              ctx.fillStyle = '#6b7280'
+            }
+
+            const cellX = chunkWorldX + col * CELL_SIZE
+            const cellY = chunkWorldY + row * CELL_SIZE
+
+            ctx.fillRect(cellX, cellY, CELL_SIZE, CELL_SIZE)
+          }
+        }
+      }
+    } else {
+      const chunkWorldX = chunkX * CHUNK_SIZE * CELL_SIZE
+      const chunkWorldY = chunkY * CHUNK_SIZE * CELL_SIZE
+
+      ctx.fillStyle = '#f3f4f6'
+      ctx.fillRect(chunkWorldX, chunkWorldY, CHUNK_SIZE * CELL_SIZE, CHUNK_SIZE * CELL_SIZE)
+
+      ctx.strokeStyle = '#d1d5db'
+      ctx.lineWidth = 2 / camera.zoom
+      ctx.strokeRect(chunkWorldX, chunkWorldY, CHUNK_SIZE * CELL_SIZE, CHUNK_SIZE * CELL_SIZE)
+    }
   }
-  for (let y = startY; y <= endY; y += gridSize) {
-    ctx.moveTo(startX, y)
-    ctx.lineTo(endX, y)
-  }
-  ctx.stroke()
+
+
 
   ctx.restore()
 
@@ -215,16 +235,17 @@ onMounted(() => {
 <style scoped>
 .world-canvas {
   position: fixed;
-  top: 0;
-  left: 0;
-  width: 100vw;
-  height: 100vh;
+  top: 5vh;
+  left: 5vh;
+  width: 90vw;
+  height: 90vh;
   margin: 0;
   padding: 0;
   display: block;
   z-index: 1;
   user-select: none;
   cursor: grab;
+  border: solid 1px red;
 }
 
 .world-canvas:active {
