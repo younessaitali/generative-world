@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { useTemplateRef, onMounted, watch } from 'vue'
-import { useEventListener, useDebounceFn } from '@vueuse/core'
+import { useEventListener, useDebounceFn, useWebSocket } from '@vueuse/core'
 
 const canvas = useTemplateRef<HTMLCanvasElement>('canvas')
 const worldStore = useWorldStore()
@@ -12,7 +12,108 @@ const isDragging = ref(false)
 const lastMousePosition = ref({ x: 0, y: 0 })
 const chunks = ref(new Map<string, number[][]>())
 
+
+const { status,  send } = useWebSocket('/ws/world-stream', {
+  autoReconnect: {
+    retries: 5,
+    delay: 1000,
+    onFailed() {
+      console.error('Failed to connect WebSocket after 5 retries')
+    },
+  },
+  heartbeat: {
+    message: 'ping',
+    interval: 30000,
+  },
+  onMessage(ws, event) {
+
+    if (!event.data) return
+
+    if(event.data === 'pong') {
+      console.log('WebSocket pong received')
+      return
+    }
+
+    try {
+      const message = JSON.parse(event.data)
+      handleWebSocketMessage(message)
+    } catch (error) {
+      console.error('Error parsing WebSocket message:', error)
+    }
+  },
+})
+
 const getChunkKey = (chunkX: number, chunkY: number) => `${chunkX},${chunkY}`
+
+
+const handleWebSocketMessage = (message: {
+  type: string
+  message?: string
+  chunkX?: number
+  chunkY?: number
+  data?: number[][]
+  chunksStreamed?: number
+  progress?: { current: number; total: number }
+  error?: string
+}) => {
+  switch (message.type) {
+    case 'connected':
+      console.log('WebSocket stream connected:', message.message)
+      break
+
+    case 'chunkData': {
+      if (message.chunkX !== undefined && message.chunkY !== undefined && message.data) {
+        const chunkKey = getChunkKey(message.chunkX, message.chunkY)
+        chunks.value.set(chunkKey, message.data)
+
+        // Log progress if available
+        if (message.progress) {
+          console.log(`Received chunk ${message.chunkX},${message.chunkY} (${message.progress.current}/${message.progress.total})`)
+        }
+      }
+      break
+    }
+
+    case 'viewportComplete':
+      console.log(`Viewport update complete: ${message.chunksStreamed} chunks streamed`)
+      break
+
+    case 'chunkError':
+    case 'viewportError':
+      console.error('WebSocket error:', message.error)
+      break
+
+    default:
+      console.warn('Unknown WebSocket message type:', message.type)
+  }
+}
+
+const sendViewportUpdate = (visibleChunks: Array<{ chunkX: number; chunkY: number }>) => {
+  if (status.value !== 'OPEN') {
+    console.warn('WebSocket not connected, cannot send viewport update')
+    return
+  }
+
+  const neededChunks = visibleChunks.filter(({ chunkX, chunkY }) => {
+    const chunkKey = getChunkKey(chunkX, chunkY)
+    return !chunks.value.has(chunkKey)
+  })
+
+  if (neededChunks.length === 0) {
+    return
+  }
+
+  const { camera } = worldStore
+
+  send(JSON.stringify({
+    type: 'updateViewport',
+    visibleChunks: neededChunks,
+    cameraX: camera.x,
+    cameraY: camera.y,
+    cameraZoom: camera.zoom,
+    requestId: `viewport-${Date.now()}`
+  }))
+}
 
 const worldToChunk = (worldX: number, worldY: number) => {
   return {
@@ -55,42 +156,10 @@ const calculateVisibleChunks = () => {
   return visibleChunks
 }
 
-const fetchChunk = async (chunkX: number, chunkY: number) => {
-  const chunkKey = getChunkKey(chunkX, chunkY)
-
-  if (chunks.value.has(chunkKey)) {
-    return chunks.value.get(chunkKey)
-  }
-
-  try {
-    const response = await $fetch<{
-      success: boolean
-      data: number[][]
-      coordinates: { x: number; y: number }
-      chunkSize: number
-      timestamp: string
-    }>('/api/world/chunk', {
-      query: { x: chunkX, y: chunkY }
-    })
-
-    if (response.success) {
-      chunks.value.set(chunkKey, response.data)
-      return response.data
-    }
-  } catch (error) {
-    console.error(`Failed to fetch chunk ${chunkKey}:`, error)
-  }
-
-  return null
-}
-
-const loadVisibleChunks = async () => {
+const loadVisibleChunks = () => {
   const visibleChunks = calculateVisibleChunks()
-
-  const fetchPromises = visibleChunks.map(({ chunkX, chunkY }) => fetchChunk(chunkX, chunkY))
-
-  if (fetchPromises.length > 0) {
-    await Promise.all(fetchPromises)
+  if (visibleChunks.length > 0) {
+    sendViewportUpdate(visibleChunks)
   }
 }
 
@@ -149,6 +218,7 @@ const handleWheel = (event: WheelEvent) => {
 }
 
 const render = () => {
+
   if (!canvas.value) return
 
   const ctx = canvas.value.getContext('2d')
@@ -223,6 +293,8 @@ onMounted(() => {
   resizeCanvas()
   requestAnimationFrame(render)
 })
+
+
 </script>
 
 <template>
