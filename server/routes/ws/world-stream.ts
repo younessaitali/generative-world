@@ -1,3 +1,5 @@
+import { getCachedChunk, setCachedChunk } from '~~/server/utils/redis'
+
 export default defineWebSocketHandler({
   open(peer) {
     console.log(`WebSocket opened: ${peer.id}`)
@@ -240,6 +242,11 @@ function calculatePrefetchRing(visibleChunks: Array<{ chunkX: number; chunkY: nu
 }
 
 async function generateChunk(chunkX: number, chunkY: number): Promise<number[][]> {
+  const cachedChunk = await getCachedChunk(chunkX, chunkY)
+  if (cachedChunk) {
+    return cachedChunk
+  }
+
   const { createNoise2D } = await import('simplex-noise')
 
   const noise2D = createNoise2D()
@@ -262,6 +269,8 @@ async function generateChunk(chunkX: number, chunkY: number): Promise<number[][]
 
     chunkData.push(rowData)
   }
+
+  await setCachedChunk(chunkX, chunkY, chunkData)
 
   return chunkData
 }
