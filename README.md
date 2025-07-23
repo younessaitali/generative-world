@@ -32,7 +32,37 @@ Make sure to install dependencies:
 ```bash
 # pnpm
 pnpm install
+```
 
+## Redis Setup
+
+This project uses Redis for server-side chunk caching to improve performance. 
+
+### Quick Start with Docker
+```bash
+# Start Redis and the development server together
+pnpm dev:full
+```
+
+### Manual Setup
+```bash
+# Start Redis container
+pnpm redis:start
+
+# Start development server
+pnpm dev
+
+# View Redis logs (optional)
+pnpm redis:logs
+
+# Stop Redis when done
+pnpm redis:stop
+```
+
+### Environment Variables
+The Redis connection URL can be configured in `.env`:
+```
+REDIS_URL=redis://localhost:6379
 ```
 
 ## Development Server

@@ -7,7 +7,11 @@
     "dev": "nuxt dev",
     "generate": "nuxt generate",
     "preview": "nuxt preview",
-    "postinstall": "nuxt prepare"
+    "postinstall": "nuxt prepare",
+    "redis:start": "docker compose up -d redis",
+    "redis:stop": "docker compose down redis",
+    "redis:logs": "docker compose logs -f redis",
+    "dev:full": "./start-dev.sh"
   },
   "dependencies": {
     "@nuxt/eslint": "1.6.0",
@@ -18,6 +22,7 @@
     "eslint": "^9.0.0",
     "nuxt": "^4.0.0",
     "pinia": "^3.0.3",
+    "redis": "^5.6.1",
     "simplex-noise": "^4.0.3",
     "typescript": "^5.6.3",
     "vue": "^3.5.17",
