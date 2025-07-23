@@ -92,7 +92,9 @@ async function handleViewportUpdate(peer: any, data: {
 }) {
   const { visibleChunks, requestId, cameraX = 0, cameraY = 0 } = data
 
-  console.log(`Streaming ${visibleChunks.length} chunks for viewport update ${requestId}`)
+  const prefetchChunks = calculatePrefetchRing(visibleChunks)
+
+  console.log(`Streaming ${visibleChunks.length} viewport chunks + ${prefetchChunks.length} prefetch chunks for update ${requestId}`)
 
   try {
     // Sort chunks by distance from camera center for better perceived performance
@@ -102,13 +104,28 @@ async function handleViewportUpdate(peer: any, data: {
       return distA - distB
     })
 
+    const sortedPrefetchChunks = prefetchChunks.sort((a, b) => {
+      const distA = Math.sqrt(Math.pow(a.chunkX - cameraX / (16 * 32), 2) + Math.pow(a.chunkY - cameraY / (16 * 32), 2))
+      const distB = Math.sqrt(Math.pow(b.chunkX - cameraX / (16 * 32), 2) + Math.pow(b.chunkY - cameraY / (16 * 32), 2))
+      return distA - distB
+    })
+
     // Stream chunks asynchronously - don't block the event loop
-    let streamedCount = 0
+    let streamedViewportCount = 0
+    let streamedPrefetchCount = 0
 
-    const streamChunk = async (chunkIndex: number) => {
-      if (chunkIndex >= sortedChunks.length) return
+    const streamChunk = async (chunkIndex: number, isPrefetch = false) => {
+      const chunkArray = isPrefetch ? sortedPrefetchChunks : sortedChunks
 
-      const { chunkX, chunkY } = sortedChunks[chunkIndex]
+      if (chunkIndex >= chunkArray.length) {
+        if (!isPrefetch && sortedPrefetchChunks.length > 0) {
+          setImmediate(() => streamChunk(0, true))
+          return
+        }
+        return
+      }
+
+      const { chunkX, chunkY } = chunkArray[chunkIndex]
 
       try {
         const chunkData = await generateChunk(chunkX, chunkY)
@@ -119,25 +136,39 @@ async function handleViewportUpdate(peer: any, data: {
           chunkY,
           data: chunkData,
           requestId,
-          priority: 'viewport',
-          progress: {
-            current: chunkIndex + 1,
-            total: sortedChunks.length
-          },
+          priority: isPrefetch ? 'low' : 'viewport',
+          progress: isPrefetch
+            ? {
+                current: chunkIndex + 1,
+                total: sortedPrefetchChunks.length,
+                phase: 'prefetch'
+              }
+            : {
+                current: chunkIndex + 1,
+                total: sortedChunks.length,
+                phase: 'viewport'
+              },
           timestamp: new Date().toISOString()
         })
 
-        streamedCount++
+        if (isPrefetch) {
+          streamedPrefetchCount++
+        } else {
+          streamedViewportCount++
+        }
 
         // Schedule next chunk on next tick to avoid blocking
-        if (chunkIndex + 1 < sortedChunks.length) {
-          setImmediate(() => streamChunk(chunkIndex + 1))
+        if (chunkIndex + 1 < chunkArray.length) {
+          setImmediate(() => streamChunk(chunkIndex + 1, isPrefetch))
+        } else if (!isPrefetch && sortedPrefetchChunks.length > 0) {
+          setImmediate(() => streamChunk(0, true))
         } else {
-          // All chunks streamed
+          // All chunks streamed (viewport + prefetch)
           peer.send({
             type: 'viewportComplete',
             requestId,
-            chunksStreamed: streamedCount,
+            chunksStreamed: streamedViewportCount,
+            prefetchChunksStreamed: streamedPrefetchCount,
             timestamp: new Date().toISOString()
           })
         }
@@ -148,12 +179,15 @@ async function handleViewportUpdate(peer: any, data: {
           chunkX,
           chunkY,
           requestId,
+          priority: isPrefetch ? 'low' : 'viewport',
           error: 'Failed to generate chunk'
         })
 
         // Continue with next chunk even if one fails
-        if (chunkIndex + 1 < sortedChunks.length) {
-          setImmediate(() => streamChunk(chunkIndex + 1))
+        if (chunkIndex + 1 < chunkArray.length) {
+          setImmediate(() => streamChunk(chunkIndex + 1, isPrefetch))
+        } else if (!isPrefetch && sortedPrefetchChunks.length > 0) {
+          setImmediate(() => streamChunk(0, true))
         }
       }
     }
@@ -166,6 +200,7 @@ async function handleViewportUpdate(peer: any, data: {
         type: 'viewportComplete',
         requestId,
         chunksStreamed: 0,
+        prefetchChunksStreamed: 0,
         timestamp: new Date().toISOString()
       })
     }
@@ -179,11 +214,34 @@ async function handleViewportUpdate(peer: any, data: {
   }
 }
 
-// Generate chunk data (reuse the logic from chunk.get.ts)
+function calculatePrefetchRing(visibleChunks: Array<{ chunkX: number; chunkY: number }>): Array<{ chunkX: number; chunkY: number }> {
+  if (visibleChunks.length === 0) return []
+
+  const visibleSet = new Set(visibleChunks.map(chunk => `${chunk.chunkX},${chunk.chunkY}`))
+
+  const minX = Math.min(...visibleChunks.map(c => c.chunkX))
+  const maxX = Math.max(...visibleChunks.map(c => c.chunkX))
+  const minY = Math.min(...visibleChunks.map(c => c.chunkY))
+  const maxY = Math.max(...visibleChunks.map(c => c.chunkY))
+
+  const prefetchChunks: Array<{ chunkX: number; chunkY: number }> = []
+
+  for (let x = minX - 1; x <= maxX + 1; x++) {
+    for (let y = minY - 1; y <= maxY + 1; y++) {
+      const chunkKey = `${x},${y}`
+
+      if (!visibleSet.has(chunkKey)) {
+        prefetchChunks.push({ chunkX: x, chunkY: y })
+      }
+    }
+  }
+
+  return prefetchChunks
+}
+
 async function generateChunk(chunkX: number, chunkY: number): Promise<number[][]> {
   const { createNoise2D } = await import('simplex-noise')
 
-  // Use consistent noise function
   const noise2D = createNoise2D()
   const chunkSize = 16
   const noiseScale = 0.1

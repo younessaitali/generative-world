@@ -52,8 +52,10 @@ const handleWebSocketMessage = (message: {
   chunkX?: number
   chunkY?: number
   data?: number[][]
+  priority?: 'viewport' | 'low'
   chunksStreamed?: number
-  progress?: { current: number; total: number }
+  prefetchChunksStreamed?: number
+  progress?: { current: number; total: number; phase?: 'viewport' | 'prefetch' }
   error?: string
 }) => {
   switch (message.type) {
@@ -68,15 +70,19 @@ const handleWebSocketMessage = (message: {
 
         // Log progress if available
         if (message.progress) {
-          console.log(`Received chunk ${message.chunkX},${message.chunkY} (${message.progress.current}/${message.progress.total})`)
+          const priorityLabel = message.priority === 'low' ? '[PREFETCH]' : '[VIEWPORT]'
+          const phaseLabel = message.progress.phase ? ` (${message.progress.phase})` : ''
+          console.log(`${priorityLabel} Received chunk ${message.chunkX},${message.chunkY} (${message.progress.current}/${message.progress.total})${phaseLabel}`)
         }
       }
       break
     }
 
-    case 'viewportComplete':
-      console.log(`Viewport update complete: ${message.chunksStreamed} chunks streamed`)
+    case 'viewportComplete': {
+      const prefetchInfo = message.prefetchChunksStreamed ? ` + ${message.prefetchChunksStreamed} prefetch chunks` : ''
+      console.log(`Viewport update complete: ${message.chunksStreamed} viewport chunks${prefetchInfo} streamed`)
       break
+    }
 
     case 'chunkError':
     case 'viewportError':
