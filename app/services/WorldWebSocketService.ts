@@ -4,7 +4,7 @@ import type {
   ChunkDataMessage,
   ErrorMessage,
   ViewportCompleteMessage,
-  ViewportUpdateMessage
+  ViewportUpdateMessage,
 } from '~/types/world'
 
 export interface WebSocketConfig {
@@ -32,7 +32,7 @@ export class WorldWebSocketService {
 
   constructor(
     private config: WebSocketConfig,
-    private handlers: WebSocketEventHandlers
+    private handlers: WebSocketEventHandlers,
   ) {}
 
   async connect(): Promise<void> {
@@ -59,7 +59,7 @@ export class WorldWebSocketService {
           resolve()
         }
 
-        this.ws.onerror = (error) => {
+        this.ws.onerror = error => {
           this.isConnecting = false
           reject(new Error(`WebSocket connection failed: ${error}`))
         }
@@ -87,7 +87,7 @@ export class WorldWebSocketService {
   requestViewportUpdate(
     visibleChunks: ChunkCoordinate[],
     cameraX?: number,
-    cameraY?: number
+    cameraY?: number,
   ): void {
     const message: ViewportUpdateMessage = {
       type: 'updateViewport',
@@ -95,7 +95,7 @@ export class WorldWebSocketService {
       cameraX,
       cameraY,
       requestId: `viewport-${Date.now()}`,
-      timestamp: new Date().toISOString()
+      timestamp: new Date().toISOString(),
     }
 
     this.send(message)
@@ -119,26 +119,31 @@ export class WorldWebSocketService {
     if (!this.ws) return 'CLOSED'
 
     switch (this.ws.readyState) {
-      case WebSocket.CONNECTING: return 'CONNECTING'
-      case WebSocket.OPEN: return 'OPEN'
-      case WebSocket.CLOSING: return 'CLOSING'
-      case WebSocket.CLOSED: return 'CLOSED'
-      default: return 'CLOSED'
+      case WebSocket.CONNECTING:
+        return 'CONNECTING'
+      case WebSocket.OPEN:
+        return 'OPEN'
+      case WebSocket.CLOSING:
+        return 'CLOSING'
+      case WebSocket.CLOSED:
+        return 'CLOSED'
+      default:
+        return 'CLOSED'
     }
   }
 
   private setupEventListeners(): void {
     if (!this.ws) return
 
-    this.ws.onmessage = (event) => {
+    this.ws.onmessage = event => {
       this.handleMessage(event.data)
     }
 
-    this.ws.onclose = (event) => {
+    this.ws.onclose = event => {
       this.handleClose(event)
     }
 
-    this.ws.onerror = (error) => {
+    this.ws.onerror = error => {
       console.error('WebSocket error:', error)
     }
   }

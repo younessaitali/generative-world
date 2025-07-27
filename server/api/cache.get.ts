@@ -1,6 +1,6 @@
 import { getRedisClient } from '~~/server/utils/redis'
 
-export default defineEventHandler(async (event) => {
+export default defineEventHandler(async event => {
   const url = getRequestURL(event)
   const action = url.searchParams.get('action')
 
@@ -20,10 +20,11 @@ export default defineEventHandler(async (event) => {
           success: true,
           cachedChunks: keys.length,
           chunkKeys: keys.slice(0, 10), // Show first 10 keys
-          redisMemoryInfo: info.split('\n').filter(line =>
-            line.includes('used_memory_human') ||
-            line.includes('used_memory_dataset')
-          )
+          redisMemoryInfo: info
+            .split('\n')
+            .filter(
+              line => line.includes('used_memory_human') || line.includes('used_memory_dataset'),
+            ),
         }
       }
 
@@ -39,7 +40,7 @@ export default defineEventHandler(async (event) => {
 
         return {
           success: true,
-          message: `Cleared ${keys.length} cached chunks`
+          message: `Cleared ${keys.length} cached chunks`,
         }
       }
 
@@ -50,14 +51,14 @@ export default defineEventHandler(async (event) => {
           availableActions: ['stats', 'clear'],
           examples: [
             '/api/cache?action=stats - View cache statistics',
-            '/api/cache?action=clear - Clear all cached chunks'
-          ]
+            '/api/cache?action=clear - Clear all cached chunks',
+          ],
         }
     }
   } catch (error) {
     return {
       success: false,
-      error: error instanceof Error ? error.message : 'Unknown error'
+      error: error instanceof Error ? error.message : 'Unknown error',
     }
   }
 })

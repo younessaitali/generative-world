@@ -8,13 +8,9 @@ export interface UseInteractionOptions {
 
 export function useWorldInteraction(
   element: Ref<HTMLElement | null | undefined>,
-  options: UseInteractionOptions = {}
+  options: UseInteractionOptions = {},
 ) {
-  const {
-    enablePanning = true,
-    enableZooming = true,
-    zoomSensitivity = 0.001
-  } = options
+  const { enablePanning = true, enableZooming = true, zoomSensitivity = 0.001 } = options
 
   const isDragging = ref(false)
   const lastMousePosition = ref({ x: 0, y: 0 })
@@ -48,7 +44,7 @@ export function useWorldInteraction(
     emitCameraEvent({
       type: 'pan',
       deltaX,
-      deltaY
+      deltaY,
     })
 
     lastMousePosition.value = { x: event.clientX, y: event.clientY }
@@ -72,7 +68,7 @@ export function useWorldInteraction(
       type: 'zoom',
       zoomDelta,
       mouseX,
-      mouseY
+      mouseY,
     })
   }
 
@@ -100,7 +96,7 @@ export function useWorldInteraction(
     emitCameraEvent({
       type: 'pan',
       deltaX,
-      deltaY
+      deltaY,
     })
 
     lastMousePosition.value = { x: touch.clientX, y: touch.clientY }
@@ -124,16 +120,24 @@ export function useWorldInteraction(
     useEventListener(element, 'touchend', handleTouchEnd)
   }
 
-  watch(element, (newElement) => {
-    if (newElement) {
-      setupEventListeners()
-    }
-  }, { immediate: true })
+  watch(
+    element,
+    newElement => {
+      if (newElement) {
+        setupEventListeners()
+      }
+    },
+    { immediate: true },
+  )
 
   const onCameraEvent = (callback: (event: CameraEvent) => void) => {
-    watch(cameraEvents, (events) => {
-      events.forEach(callback)
-    }, { deep: true })
+    watch(
+      cameraEvents,
+      events => {
+        events.forEach(callback)
+      },
+      { deep: true },
+    )
   }
 
   return {
@@ -143,6 +147,6 @@ export function useWorldInteraction(
     emitCameraEvent,
     enablePanning,
     enableZooming,
-    zoomSensitivity
+    zoomSensitivity,
   }
 }

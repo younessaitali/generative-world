@@ -10,14 +10,14 @@ export function useWorldChunks(config: WorldConfig) {
   const worldToChunk = (worldX: number, worldY: number): ChunkCoordinate => {
     return {
       chunkX: Math.floor(worldX / (config.chunkSize * config.cellSize)),
-      chunkY: Math.floor(worldY / (config.chunkSize * config.cellSize))
+      chunkY: Math.floor(worldY / (config.chunkSize * config.cellSize)),
     }
   }
 
   const chunkToWorld = (coordinate: ChunkCoordinate) => {
     return {
       x: coordinate.chunkX * config.chunkSize * config.cellSize,
-      y: coordinate.chunkY * config.chunkSize * config.cellSize
+      y: coordinate.chunkY * config.chunkSize * config.cellSize,
     }
   }
 
@@ -26,7 +26,7 @@ export function useWorldChunks(config: WorldConfig) {
     topWorld: number,
     rightWorld: number,
     bottomWorld: number,
-    padding = 1
+    padding = 1,
   ): ChunkCoordinate[] => {
     const topLeftChunk = worldToChunk(leftWorld, topWorld)
     const bottomRightChunk = worldToChunk(rightWorld, bottomWorld)
@@ -54,14 +54,14 @@ export function useWorldChunks(config: WorldConfig) {
       right: number
       bottom: number
     },
-    padding = 1
+    padding = 1,
   ): ChunkCoordinate[] => {
     return calculateVisibleChunks(
       viewportBounds.left,
       viewportBounds.top,
       viewportBounds.right,
       viewportBounds.bottom,
-      padding
+      padding,
     )
   }
 
@@ -92,18 +92,16 @@ export function useWorldChunks(config: WorldConfig) {
   const sortChunksByDistance = (
     coordinates: ChunkCoordinate[],
     centerX: number,
-    centerY: number
+    centerY: number,
   ): ChunkCoordinate[] => {
     const centerChunk = worldToChunk(centerX, centerY)
 
     return [...coordinates].sort((a, b) => {
       const distA = Math.sqrt(
-        Math.pow(a.chunkX - centerChunk.chunkX, 2) +
-        Math.pow(a.chunkY - centerChunk.chunkY, 2)
+        Math.pow(a.chunkX - centerChunk.chunkX, 2) + Math.pow(a.chunkY - centerChunk.chunkY, 2),
       )
       const distB = Math.sqrt(
-        Math.pow(b.chunkX - centerChunk.chunkX, 2) +
-        Math.pow(b.chunkY - centerChunk.chunkY, 2)
+        Math.pow(b.chunkX - centerChunk.chunkX, 2) + Math.pow(b.chunkY - centerChunk.chunkY, 2),
       )
       return distA - distB
     })
@@ -116,7 +114,7 @@ export function useWorldChunks(config: WorldConfig) {
   const getChunkStats = () => {
     return {
       totalChunks: chunks.value.size,
-      chunkKeys: Array.from(chunks.value.keys())
+      chunkKeys: Array.from(chunks.value.keys()),
     }
   }
 
@@ -134,6 +132,6 @@ export function useWorldChunks(config: WorldConfig) {
     getUnloadedChunks,
     sortChunksByDistance,
     clearChunks,
-    getChunkStats
+    getChunkStats,
   }
 }

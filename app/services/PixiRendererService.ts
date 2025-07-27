@@ -1,9 +1,5 @@
 import * as PIXI from 'pixi.js'
-import type {
-  ChunkCoordinate,
-  TerrainGrid,
-  RendererStats
-} from '../types/world'
+import type { ChunkCoordinate, TerrainGrid, RendererStats } from '../types/world'
 import { createServiceLogger } from '../utils/logger'
 import { WORLD_CONFIG, type WorldConfig } from '../config/world.config'
 
@@ -26,7 +22,7 @@ export class PixiRendererService {
   private stats: RendererStats = {
     chunksLoaded: 0,
     frameRate: 0,
-    memory: 0
+    memory: 0,
   }
 
   constructor(config: WorldConfig = WORLD_CONFIG) {
@@ -43,12 +39,12 @@ export class PixiRendererService {
       await this.app.init({
         width: container.clientWidth,
         height: container.clientHeight,
-        ...this.config.renderer
+        ...this.config.renderer,
       })
 
       this.logger.info('PixiJS application initialized', 'initialize', {
         width: container.clientWidth,
-        height: container.clientHeight
+        height: container.clientHeight,
       })
 
       container.appendChild(this.app.canvas)
@@ -90,7 +86,10 @@ export class PixiRendererService {
 
   setCameraTransform(x: number, y: number, zoom: number): void {
     if (!this.app || !this.worldContainer) {
-      this.logger.warn('Cannot set camera transform - renderer not initialized', 'setCameraTransform')
+      this.logger.warn(
+        'Cannot set camera transform - renderer not initialized',
+        'setCameraTransform',
+      )
       return
     }
 
@@ -122,7 +121,7 @@ export class PixiRendererService {
 
     this.logger.debug('Chunk added successfully', 'addChunk', {
       chunkKey,
-      spritesCount: chunk.sprites.length
+      spritesCount: chunk.sprites.length,
     })
   }
 
@@ -173,16 +172,20 @@ export class PixiRendererService {
     const visibleKeys = new Set(visibleChunks.map(c => `${c.chunkX},${c.chunkY}`))
 
     // Remove chunks that are no longer visible
-    for (const [chunkKey, chunk] of this.chunks) {
+    for (const [chunkKey] of this.chunks) {
       if (!visibleKeys.has(chunkKey)) {
-        const [chunkX, chunkY] = chunkKey.split(',').map(Number)
-        this.removeChunk({ chunkX, chunkY })
+        const coords = chunkKey.split(',').map(Number)
+        const chunkX = coords[0]
+        const chunkY = coords[1]
+        if (chunkX !== undefined && chunkY !== undefined) {
+          this.removeChunk({ chunkX, chunkY })
+        }
       }
     }
 
     this.logger.debug('Visible chunks updated', 'updateVisibleChunks', {
       visibleCount: visibleChunks.length,
-      loadedCount: this.chunks.size
+      loadedCount: this.chunks.size,
     })
   }
 
@@ -190,7 +193,7 @@ export class PixiRendererService {
     return {
       ...this.stats,
       frameRate: this.app?.ticker.FPS || 0,
-      memory: this.getMemoryUsage()
+      memory: this.getMemoryUsage(),
     }
   }
 
@@ -235,9 +238,12 @@ export class PixiRendererService {
 
   private getTextureForCell(cellValue: number | undefined): PIXI.Texture | null {
     switch (cellValue) {
-      case 0: return this.waterTexture
-      case 1: return this.landTexture
-      default: return this.unknownTexture
+      case 0:
+        return this.waterTexture
+      case 1:
+        return this.landTexture
+      default:
+        return this.unknownTexture
     }
   }
 
@@ -245,8 +251,12 @@ export class PixiRendererService {
     this.logger.info('Destroying PixiJS renderer', 'destroy')
 
     for (const [chunkKey] of this.chunks) {
-      const [chunkX, chunkY] = chunkKey.split(',').map(Number)
-      this.removeChunk({ chunkX, chunkY })
+      const coords = chunkKey.split(',').map(Number)
+      const chunkX = coords[0]
+      const chunkY = coords[1]
+      if (chunkX !== undefined && chunkY !== undefined) {
+        this.removeChunk({ chunkX, chunkY })
+      }
     }
 
     if (this.app) {

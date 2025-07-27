@@ -6,14 +6,14 @@ const noise2D = createNoise2D()
 
 const querySchema = z.object({
   x: z.coerce.number().int().default(0),
-  y: z.coerce.number().int().default(0)
+  y: z.coerce.number().int().default(0),
 })
 
 export default defineValidatedEventHandler(
   {
-    query: querySchema
+    query: querySchema,
   },
-  async (event) => {
+  async event => {
     const { x, y } = event.context.validated.query
 
     const chunkSize = 16
@@ -43,7 +43,7 @@ export default defineValidatedEventHandler(
       data: { cells: chunkData },
       coordinates: { x, y },
       chunkSize,
-      timestamp: new Date().toISOString()
+      timestamp: new Date().toISOString(),
     }
-  }
+  },
 )

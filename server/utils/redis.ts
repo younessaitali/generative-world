@@ -10,7 +10,7 @@ export async function getRedisClient() {
         url: process.env.REDIS_URL || 'redis://localhost:6379',
       })
 
-      redisClient.on('error', (err) => {
+      redisClient.on('error', err => {
         console.error('Redis Client Error:', err)
         redisAvailable = false
       })
@@ -74,7 +74,11 @@ export async function getCachedChunk(chunkX: number, chunkY: number): Promise<nu
   }
 }
 
-export async function setCachedChunk(chunkX: number, chunkY: number, chunkData: number[][]): Promise<void> {
+export async function setCachedChunk(
+  chunkX: number,
+  chunkY: number,
+  chunkData: number[][],
+): Promise<void> {
   try {
     const client = await getRedisClient()
 

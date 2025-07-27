@@ -1,0 +1,19 @@
+{
+  "$schema": "./node_modules/oxlint/configuration_schema.json",
+  "rules": {
+    "typescript": "warn",
+    "correctness": "warn",
+    "style": "warn",
+    "suspicious": "warn",
+    "perf": "warn"
+  },
+  "ignore": [
+    ".nuxt/**/*",
+    ".output/**/*",
+    "dist/**/*",
+    "node_modules/**/*",
+    "coverage/**/*",
+    "playwright-report/**/*",
+    "test-results/**/*"
+  ]
+}

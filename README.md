@@ -1,28 +1,32 @@
- # The Generative World Explorer 🌍
+# The Generative World Explorer 🌍
 
 A high-performance, procedurally generated infinite world explorer built with **Nuxt.js 4**, **WebGL**, and **real-time streaming**. Experience seamless exploration of vast, dynamically generated terrains with advanced caching and optimizations.
 
 ## ✨ Features
 
 ### 🌎 **Infinite Procedural World**
+
 - **10,000×10,000+ grid** support with seamless exploration
 - **Perlin/Simplex noise-based** terrain generation
 - **Multi-layer generation** system (terrain, biomes, features)
 - **Chunk-based architecture** (16×16 cells per chunk)
 
 ### 🚀 **High-Performance Rendering**
+
 - **WebGL-powered rendering** with PixiJS (10-100x performance improvement over Canvas 2D)
 - **Level-of-Detail (LOD)** system for zoom-based optimization
 - **Hybrid rendering architecture**: WebGL terrain + Canvas effects + DOM UI
 - **60 FPS** smooth performance even with massive worlds
 
 ### ⚡ **Real-Time Streaming**
+
 - **WebSocket-based** chunk streaming for minimal latency
 - **Predictive loading** - chunks load before you need them
 - **Priority-based delivery** (viewport center → adjacent → prefetch ring)
 - **Multi-level caching** (browser memory → IndexedDB → Redis → persistent storage)
 
 ### 🎮 **Interactive Experience**
+
 - **Smooth pan & zoom** with mouse/touch controls
 - **Fog of War** discovery mechanics
 - **Real-time cache visualization** (blue = undiscovered, colored = cached)
@@ -32,12 +36,14 @@ A high-performance, procedurally generated infinite world explorer built with **
 ## 🏗️ **Architecture**
 
 ### **Tech Stack**
+
 - **Frontend**: Nuxt.js 4, Vue 3, TypeScript, PixiJS 8.11, TailwindCSS
 - **Backend**: Nitro server, WebSockets, Redis 7 caching
 - **Libraries**: Pinia (state), VueUse (composables), Simplex-noise, Zod validation
 - **Infrastructure**: Docker Compose, Redis Alpine, auto-scaling development setup
 
 ### **Performance Optimizations**
+
 - **WebGL GPU acceleration** for terrain rendering
 - **Chunk-based lazy loading** - only generate what's visible
 - **Server-side Redis caching** - instant chunk retrieval
@@ -45,18 +51,22 @@ A high-performance, procedurally generated infinite world explorer built with **
 - **Predictive prefetching** - anticipates user movement
 
 ### **Development Phases**
+
 - ✅ **Phase 1**: Core rendering & interaction (pan, zoom, basic terrain)
 - ✅ **Phase 2**: Real-time streaming & caching optimizations
 - ✅ **Phase 3**: WebGL upgrade & performance boost (10-100x improvement)
 - ✅ **Phase 4**: Production-ready architecture with Redis & Docker
 - 🚧 **Phase 5**: Resource extraction gameplay mechanics
+
 ## 🚀 **Quick Start**
 
 ### **Prerequisites**
+
 - Node.js 18+ and pnpm installed
 - Docker (for Redis caching)
 
 ### **Installation**
+
 ```bash
 # Clone the repository
 git clone <your-repo-url>
@@ -69,12 +79,14 @@ pnpm install
 ### **Development Setup**
 
 #### **Option 1: Full Stack (Recommended)**
+
 ```bash
 # Start Redis + Development server in one command
 pnpm dev:full
 ```
 
 #### **Option 2: Manual Setup**
+
 ```bash
 # Start Redis container
 pnpm redis:start
@@ -92,7 +104,9 @@ pnpm redis:stop
 The development server runs on **`http://localhost:3000`** with hot module replacement.
 
 ### **Environment Configuration**
+
 Create a `.env` file for custom Redis configuration:
+
 ```bash
 REDIS_URL=redis://localhost:6379
 ```
@@ -160,18 +174,21 @@ server/
 ## 🔧 **Technical Implementation**
 
 ### **Rendering Pipeline**
+
 1. **Viewport Calculation**: Determine visible chunks based on camera position
 2. **Cache Check**: Look for chunks in browser memory → Redis → generate new
 3. **WebGL Rendering**: Use PixiJS for GPU-accelerated terrain rendering
 4. **Predictive Loading**: Prefetch chunks likely to be needed next
 
 ### **Chunk Generation**
+
 - **Coordinates → Noise**: Use Simplex noise with chunk coordinates as seed
 - **Terrain Mapping**: Convert noise values to terrain types (water, grass, mountain)
 - **Caching Strategy**: Store in Redis with TTL for server-side performance
 - **Compression**: Use efficient binary formats for network transfer
 
 ### **WebSocket Streaming**
+
 - **Viewport Updates**: Client sends camera position changes
 - **Priority Streaming**: Server sends chunks by priority (center → edges)
 - **Predictive Prefetching**: Surrounding chunks loaded in background
@@ -182,6 +199,7 @@ server/
 ## 🆕 **Latest Updates**
 
 ### **Recently Completed**
+
 - ✅ **WebGL Rendering Engine**: Complete migration from Canvas 2D to PixiJS
 - ✅ **Production Docker Setup**: Redis containerization with health checks
 - ✅ **Smart Development Scripts**: Auto-detect Docker and graceful fallbacks
@@ -189,6 +207,7 @@ server/
 - ✅ **Service-Oriented Design**: Modular renderer and WebSocket services
 
 ### **Current State**
+
 - **Infinite world generation** working with Simplex noise
 - **Real-time WebSocket streaming** with priority-based delivery
 - **Multi-layer caching** (memory + Redis) for instant performance
@@ -198,6 +217,7 @@ server/
 ## 🚧 **Roadmap**
 
 ### **Next Phase: Resource Extraction Game**
+
 - [ ] **Resource vein generation** in chunks (Iron, Copper, Gold)
 - [ ] **Scanning mechanics** to discover resources
 - [ ] **Extractor placement** and passive resource generation
@@ -205,6 +225,7 @@ server/
 - [ ] **Go microservice** for large-scale geological simulation
 
 ### **Future Enhancements**
+
 - [ ] **Multiplayer support** with shared world discovery
 - [ ] **Biome variety** (desert, tundra, forest) with unique features
 - [ ] **Dynamic world events** (weather, seasonal changes)
@@ -214,12 +235,14 @@ server/
 ## 📊 **Performance Benchmarks**
 
 ### **Rendering Performance**
+
 - **Canvas 2D**: ~100 chunks at 30 FPS
 - **WebGL (PixiJS)**: ~10,000+ chunks at 60 FPS
 - **Memory Usage**: ~50MB for 1000 cached chunks
 - **GPU Acceleration**: 10-100x performance improvement
 
 ### **Network & Caching**
+
 - **Network**: ~1KB per chunk with compression
 - **Generation**: ~1ms per chunk with Redis caching
 - **WebSocket Latency**: <10ms chunk streaming

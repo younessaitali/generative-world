@@ -4,7 +4,6 @@ export interface Camera {
   zoom: number
 }
 
-
 export type CameraState = Camera
 
 export interface Viewport {

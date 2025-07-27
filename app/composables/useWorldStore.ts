@@ -7,21 +7,20 @@ export const useWorldStore = defineStore('world', () => {
     initialY: 0,
     initialZoom: 1.0,
     minZoom: 0.1,
-    maxZoom: 10
+    maxZoom: 10,
   })
 
   const worldConfig = {
     chunkSize: 16,
     cellSize: 32,
     cacheExpiration: 3600,
-    prefetchRadius: 1
+    prefetchRadius: 1,
   }
   const stats = ref({
     chunksLoaded: 0,
     chunksVisible: 0,
-    activeConnections: 0
+    activeConnections: 0,
   })
-
 
   const updateStats = (newStats: Partial<typeof stats.value>) => {
     Object.assign(stats.value, newStats)
@@ -40,6 +39,6 @@ export const useWorldStore = defineStore('world', () => {
     getViewportBounds: cameraComposable.getViewportBounds,
     worldConfig: readonly(worldConfig),
     stats: readonly(stats),
-    updateStats
+    updateStats,
   }
 })

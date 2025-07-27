@@ -1,9 +1,12 @@
-import { WorldWebSocketService, type WebSocketEventHandlers } from '~/services/WorldWebSocketService'
+import {
+  WorldWebSocketService,
+  type WebSocketEventHandlers,
+} from '~/services/WorldWebSocketService'
 import type {
   ChunkCoordinate,
   ChunkDataMessage,
   ErrorMessage,
-  ViewportCompleteMessage
+  ViewportCompleteMessage,
 } from '~/types/world'
 
 export interface UseWorldWebSocketOptions {
@@ -30,7 +33,7 @@ export function useWorldWebSocket(options: UseWorldWebSocketOptions = {}) {
       autoReconnect: options.autoReconnect ?? true,
       maxRetries: options.maxRetries ?? 5,
       retryDelay: options.retryDelay ?? 1000,
-      heartbeatInterval: options.heartbeatInterval ?? 30000
+      heartbeatInterval: options.heartbeatInterval ?? 30000,
     }
 
     const handlers: WebSocketEventHandlers = {
@@ -61,7 +64,7 @@ export function useWorldWebSocket(options: UseWorldWebSocketOptions = {}) {
         isConnected.value = false
         status.value = 'CLOSED'
         connectionAttempts.value++
-      }
+      },
     }
 
     webSocketService = new WorldWebSocketService(config, handlers)
@@ -83,11 +86,10 @@ export function useWorldWebSocket(options: UseWorldWebSocketOptions = {}) {
     status.value = 'CLOSED'
   }
 
-
   const requestViewportUpdate = (
     visibleChunks: ChunkCoordinate[],
     cameraX?: number,
-    cameraY?: number
+    cameraY?: number,
   ) => {
     if (!webSocketService || !isConnected.value) {
       console.warn('WebSocket not connected, cannot request viewport update')
@@ -134,6 +136,6 @@ export function useWorldWebSocket(options: UseWorldWebSocketOptions = {}) {
     onChunkData,
     onError,
     onViewportComplete,
-    onConnected
+    onConnected,
   }
 }

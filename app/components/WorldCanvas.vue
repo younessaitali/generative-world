@@ -5,16 +5,17 @@ import { useWorldManager } from '~/composables/world/useWorldManager'
 const canvasContainer = useTemplateRef<HTMLElement>('canvasContainer')
 
 // Only initialize world manager on client side
-const worldManager = import.meta.client ? useWorldManager(canvasContainer, {
-  rendererConfig: {
-    width: 800,  // Default fallback values
-    height: 600,
-    backgroundColor: 0x1a1a1a
-  },
-  enableInteractions: true,
-  debounceDuration: 250
-}) : null
-
+const worldManager = import.meta.client
+  ? useWorldManager(canvasContainer, {
+      rendererConfig: {
+        width: 800, // Default fallback values
+        height: 600,
+        backgroundColor: 0x1a1a1a,
+      },
+      enableInteractions: true,
+      debounceDuration: 250,
+    })
+  : null
 
 onMounted(async () => {
   if (!worldManager) return
@@ -30,10 +31,7 @@ onMounted(async () => {
     await worldManager.initialize()
 
     if (canvasContainer.value) {
-      worldManager.resize(
-        canvasContainer.value.clientWidth,
-        canvasContainer.value.clientHeight
-      )
+      worldManager.resize(canvasContainer.value.clientWidth, canvasContainer.value.clientHeight)
     }
 
     console.log('World canvas initialized successfully')
@@ -53,37 +51,21 @@ if (import.meta.dev && import.meta.client && worldManager) {
 
 <template>
   <ClientOnly>
-    <div
-      ref="canvasContainer"
-      class="world-canvas-container"
-    >
+    <div ref="canvasContainer" class="world-canvas-container">
       <!-- Loading overlay -->
-      <div
-        v-if="worldManager?.isLoading?.value"
-        class="loading-overlay"
-      >
+      <div v-if="worldManager?.isLoading?.value" class="loading-overlay">
         <div class="loading-spinner" />
         <p>Loading world...</p>
       </div>
 
       <!-- Error overlay -->
-      <div
-        v-if="worldManager?.error?.value"
-        class="error-overlay"
-      >
+      <div v-if="worldManager?.error?.value" class="error-overlay">
         <div class="error-content">
           <h3>Failed to load world</h3>
           <p>{{ worldManager.error.value.message }}</p>
-          <button
-            class="retry-button"
-            @click="worldManager?.initialize?.()"
-          >
-            Retry
-          </button>
+          <button class="retry-button" @click="worldManager?.initialize?.()">Retry</button>
         </div>
       </div>
-
-      <!-- PixiJS canvas will be inserted here by the renderer -->
     </div>
     <template #fallback>
       <div class="world-canvas-container">
@@ -148,8 +130,12 @@ if (import.meta.dev && import.meta.client && worldManager) {
 }
 
 @keyframes spin {
-  0% { transform: rotate(0deg); }
-  100% { transform: rotate(360deg); }
+  0% {
+    transform: rotate(0deg);
+  }
+  100% {
+    transform: rotate(360deg);
+  }
 }
 
 .error-overlay {

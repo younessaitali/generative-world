@@ -10,7 +10,7 @@ import type {
   WorldConfig,
   CameraEvent,
   ErrorMessage,
-  ViewportCompleteMessage
+  ViewportCompleteMessage,
 } from '~/types/world'
 
 export interface UseWorldManagerOptions {
@@ -26,7 +26,7 @@ export interface UseWorldManagerOptions {
  */
 export function useWorldManager(
   container: Ref<HTMLElement | null | undefined>,
-  options: UseWorldManagerOptions = {}
+  options: UseWorldManagerOptions = {},
 ) {
   const worldStore = useWorldStore()
 
@@ -34,12 +34,12 @@ export function useWorldManager(
 
   const renderer = useWorldRenderer(container)
   const webSocket = useWorldWebSocket({
-    url: options.webSocketUrl || '/ws/world-stream'
+    url: options.webSocketUrl || '/ws/world-stream',
   })
   const chunks = useWorldChunks(worldConfig)
   const interaction = useWorldInteraction(container, {
     enablePanning: options.enableInteractions ?? true,
-    enableZooming: options.enableInteractions ?? true
+    enableZooming: options.enableInteractions ?? true,
   })
 
   const isInitialized = ref(false)
@@ -51,11 +51,12 @@ export function useWorldManager(
       isLoading.value = true
       error.value = null
 
-      const config = rendererConfig || options.rendererConfig || {
-        width: import.meta.client ? window.innerWidth : 800,
-        height: import.meta.client ? window.innerHeight : 600,
-        backgroundColor: 0x1a1a1a
-      }
+      const config = rendererConfig ||
+        options.rendererConfig || {
+          width: import.meta.client ? window.innerWidth : 800,
+          height: import.meta.client ? window.innerHeight : 600,
+          backgroundColor: 0x1a1a1a,
+        }
 
       await renderer.initialize(config)
 
@@ -86,7 +87,7 @@ export function useWorldManager(
     webSocket.onChunkData((message: ChunkDataMessage) => {
       const coordinate: ChunkCoordinate = {
         chunkX: message.chunkX,
-        chunkY: message.chunkY
+        chunkY: message.chunkY,
       }
 
       chunks.setChunk(coordinate, message.data)
@@ -108,7 +109,7 @@ export function useWorldManager(
 
     const viewport = worldStore.getViewportBounds(
       container.value.clientWidth,
-      container.value.clientHeight
+      container.value.clientHeight,
     )
 
     const visibleChunks = chunks.getVisibleChunksForViewport(viewport)
@@ -118,23 +119,15 @@ export function useWorldManager(
       const sortedChunks = chunks.sortChunksByDistance(
         unloadedChunks,
         worldStore.camera.x,
-        worldStore.camera.y
+        worldStore.camera.y,
       )
 
-      webSocket.requestViewportUpdate(
-        sortedChunks,
-        worldStore.camera.x,
-        worldStore.camera.y
-      )
+      webSocket.requestViewportUpdate(sortedChunks, worldStore.camera.x, worldStore.camera.y)
     }
   }
 
   // Debounced chunk loading to prevent excessive requests
-  const debouncedLoadChunks = useDebounceFn(
-    loadVisibleChunks,
-    options.debounceDuration ?? 250
-  )
-
+  const debouncedLoadChunks = useDebounceFn(loadVisibleChunks, options.debounceDuration ?? 250)
 
   const resize = (width: number, height: number) => {
     renderer.resize(width, height)
@@ -148,7 +141,7 @@ export function useWorldManager(
     worldStore.updateStats({
       chunksLoaded: chunkStats.totalChunks,
       chunksVisible: rendererStats?.chunksVisible ?? 0,
-      activeConnections: webSocket.isConnected ? 1 : 0
+      activeConnections: webSocket.isConnected ? 1 : 0,
     })
   }
 
@@ -167,11 +160,11 @@ export function useWorldManager(
 
   watch(
     () => worldStore.camera,
-    (camera) => {
+    camera => {
       renderer.setCameraTransform(camera.x, camera.y, camera.zoom)
       debouncedLoadChunks()
     },
-    { deep: true, immediate: true }
+    { deep: true, immediate: true },
   )
 
   onUnmounted(() => {
@@ -191,6 +184,6 @@ export function useWorldManager(
     updateStats,
     destroy,
     loadVisibleChunks,
-    debouncedLoadChunks
+    debouncedLoadChunks,
   }
 }

@@ -2,7 +2,7 @@ export enum LogLevel {
   DEBUG = 0,
   INFO = 1,
   WARN = 2,
-  ERROR = 3
+  ERROR = 3,
 }
 
 export interface LogContext {
@@ -30,11 +30,21 @@ class Logger {
 
   private formatMessage(level: string, message: string, context?: LogContext): string {
     const timestamp = new Date().toISOString()
-    const contextStr = context ? ` [${Object.entries(context).map(([k, v]) => `${k}=${v}`).join(', ')}]` : ''
+    const contextStr = context
+      ? ` [${Object.entries(context)
+          .map(([k, v]) => `${k}=${v}`)
+          .join(', ')}]`
+      : ''
     return `[${timestamp}] ${level}${contextStr}: ${message}`
   }
 
-  private log(level: LogLevel, levelName: string, message: string, context?: LogContext, ...args: unknown[]) {
+  private log(
+    level: LogLevel,
+    levelName: string,
+    message: string,
+    context?: LogContext,
+    ...args: unknown[]
+  ) {
     if (!this.shouldLog(level)) return
 
     const formattedMessage = this.formatMessage(levelName, message, context)
@@ -87,5 +97,5 @@ export const createServiceLogger = (serviceName: string) => ({
   warn: (message: string, method?: string, metadata?: Record<string, unknown>) =>
     logger.warn(message, { service: serviceName, method, ...metadata }),
   error: (message: string, method?: string, metadata?: Record<string, unknown>) =>
-    logger.error(message, { service: serviceName, method, ...metadata })
+    logger.error(message, { service: serviceName, method, ...metadata }),
 })

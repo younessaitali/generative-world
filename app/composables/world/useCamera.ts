@@ -13,7 +13,7 @@ export function useCamera(options: UseCameraOptions = {}) {
   const camera = ref<Camera>({
     x: options.initialX ?? 0,
     y: options.initialY ?? 0,
-    zoom: options.initialZoom ?? 1.0
+    zoom: options.initialZoom ?? 1.0,
   })
 
   const minZoom = options.minZoom ?? 0.1
@@ -55,7 +55,11 @@ export function useCamera(options: UseCameraOptions = {}) {
         break
 
       case 'zoom':
-        if (event.zoomDelta !== undefined && event.mouseX !== undefined && event.mouseY !== undefined) {
+        if (
+          event.zoomDelta !== undefined &&
+          event.mouseX !== undefined &&
+          event.mouseY !== undefined
+        ) {
           zoomAtPoint(event.zoomDelta, event.mouseX, event.mouseY)
         }
         break
@@ -71,14 +75,14 @@ export function useCamera(options: UseCameraOptions = {}) {
   const screenToWorld = (screenX: number, screenY: number) => {
     return {
       x: (screenX - camera.value.x) / camera.value.zoom,
-      y: (screenY - camera.value.y) / camera.value.zoom
+      y: (screenY - camera.value.y) / camera.value.zoom,
     }
   }
 
   const worldToScreen = (worldX: number, worldY: number) => {
     return {
       x: worldX * camera.value.zoom + camera.value.x,
-      y: worldY * camera.value.zoom + camera.value.y
+      y: worldY * camera.value.zoom + camera.value.y,
     }
   }
 
@@ -92,7 +96,7 @@ export function useCamera(options: UseCameraOptions = {}) {
       right: (-camera.value.x + viewportWidth) / camera.value.zoom,
       bottom: (-camera.value.y + viewportHeight) / camera.value.zoom,
       width: worldViewportWidth,
-      height: worldViewportHeight
+      height: worldViewportHeight,
     }
   }
 
@@ -109,6 +113,6 @@ export function useCamera(options: UseCameraOptions = {}) {
     getViewportBounds,
     minZoom,
     maxZoom,
-    zoomSensitivity
+    zoomSensitivity,
   }
 }

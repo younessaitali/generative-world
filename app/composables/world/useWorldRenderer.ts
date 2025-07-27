@@ -9,7 +9,7 @@ export function useWorldRenderer(container: Ref<HTMLElement | null | undefined>)
   const isInitialized = ref(false)
   const stats = ref<RendererStats | null>(null)
 
-  const initialize = async (config: RendererConfig) => {
+  const initialize = async (_config: RendererConfig) => {
     // Wait for container to be available if it's not yet
     let attempts = 0
     const maxAttempts = 50
@@ -88,6 +88,6 @@ export function useWorldRenderer(container: Ref<HTMLElement | null | undefined>)
     resize,
     getStats,
     updateStats,
-    destroy
+    destroy,
   }
 }

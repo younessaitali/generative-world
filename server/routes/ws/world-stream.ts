@@ -1,5 +1,10 @@
 import { getCachedChunk, setCachedChunk } from '~~/server/utils/redis'
 
+interface WebSocketPeer {
+  id: string
+  send: (data: Record<string, unknown>) => void
+}
+
 export default defineWebSocketHandler({
   open(peer) {
     console.log(`WebSocket opened: ${peer.id}`)
@@ -7,7 +12,7 @@ export default defineWebSocketHandler({
     peer.send({
       type: 'connected',
       message: 'World stream connected',
-      timestamp: new Date().toISOString()
+      timestamp: new Date().toISOString(),
     })
   },
 
@@ -34,14 +39,14 @@ export default defineWebSocketHandler({
         default:
           peer.send({
             type: 'error',
-            message: `Unknown message type: ${data.type}`
+            message: `Unknown message type: ${data.type}`,
           })
       }
     } catch (error) {
       console.error('Error processing message:', error)
       peer.send({
         type: 'error',
-        message: 'Invalid message format'
+        message: 'Invalid message format',
       })
     }
   },
@@ -52,12 +57,14 @@ export default defineWebSocketHandler({
 
   error(peer, error) {
     console.error(`WebSocket error for ${peer.id}:`, error)
-  }
+  },
 })
 
 // Handle individual chunk requests
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-async function handleChunkRequest(peer: any, data: { chunkX: number; chunkY: number; requestId?: string }) {
+async function handleChunkRequest(
+  peer: WebSocketPeer,
+  data: { chunkX: number; chunkY: number; requestId?: string },
+) {
   const { chunkX, chunkY, requestId } = data
 
   try {
@@ -69,7 +76,7 @@ async function handleChunkRequest(peer: any, data: { chunkX: number; chunkY: num
       chunkY,
       data: { cells: chunkData },
       requestId,
-      timestamp: new Date().toISOString()
+      timestamp: new Date().toISOString(),
     })
   } catch (error) {
     console.error(`Error generating chunk ${chunkX},${chunkY}:`, error)
@@ -78,36 +85,48 @@ async function handleChunkRequest(peer: any, data: { chunkX: number; chunkY: num
       chunkX,
       chunkY,
       requestId,
-      error: 'Failed to generate chunk'
+      error: 'Failed to generate chunk',
     })
   }
 }
 
 // Handle viewport updates and stream multiple chunks
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-async function handleViewportUpdate(peer: any, data: {
-  visibleChunks: Array<{ chunkX: number; chunkY: number }>;
-  requestId?: string;
-  cameraX?: number;
-  cameraY?: number;
-}) {
+async function handleViewportUpdate(
+  peer: WebSocketPeer,
+  data: {
+    visibleChunks: Array<{ chunkX: number; chunkY: number }>
+    requestId?: string
+    cameraX?: number
+    cameraY?: number
+  },
+) {
   const { visibleChunks, requestId, cameraX = 0, cameraY = 0 } = data
 
   const prefetchChunks = calculatePrefetchRing(visibleChunks)
 
-  console.log(`Streaming ${visibleChunks.length} viewport chunks + ${prefetchChunks.length} prefetch chunks for update ${requestId}`)
+  console.log(
+    `Streaming ${visibleChunks.length} viewport chunks + ${prefetchChunks.length} prefetch chunks for update ${requestId}`,
+  )
 
   try {
     // Sort chunks by distance from camera center for better perceived performance
     const sortedChunks = visibleChunks.sort((a, b) => {
-      const distA = Math.sqrt(Math.pow(a.chunkX - cameraX / (16 * 32), 2) + Math.pow(a.chunkY - cameraY / (16 * 32), 2))
-      const distB = Math.sqrt(Math.pow(b.chunkX - cameraX / (16 * 32), 2) + Math.pow(b.chunkY - cameraY / (16 * 32), 2))
+      const distA = Math.sqrt(
+        Math.pow(a.chunkX - cameraX / (16 * 32), 2) + Math.pow(a.chunkY - cameraY / (16 * 32), 2),
+      )
+      const distB = Math.sqrt(
+        Math.pow(b.chunkX - cameraX / (16 * 32), 2) + Math.pow(b.chunkY - cameraY / (16 * 32), 2),
+      )
       return distA - distB
     })
 
     const sortedPrefetchChunks = prefetchChunks.sort((a, b) => {
-      const distA = Math.sqrt(Math.pow(a.chunkX - cameraX / (16 * 32), 2) + Math.pow(a.chunkY - cameraY / (16 * 32), 2))
-      const distB = Math.sqrt(Math.pow(b.chunkX - cameraX / (16 * 32), 2) + Math.pow(b.chunkY - cameraY / (16 * 32), 2))
+      const distA = Math.sqrt(
+        Math.pow(a.chunkX - cameraX / (16 * 32), 2) + Math.pow(a.chunkY - cameraY / (16 * 32), 2),
+      )
+      const distB = Math.sqrt(
+        Math.pow(b.chunkX - cameraX / (16 * 32), 2) + Math.pow(b.chunkY - cameraY / (16 * 32), 2),
+      )
       return distA - distB
     })
 
@@ -140,16 +159,16 @@ async function handleViewportUpdate(peer: any, data: {
           priority: isPrefetch ? 'low' : 'viewport',
           progress: isPrefetch
             ? {
-                current: chunkIndex + 1,
-                total: sortedPrefetchChunks.length,
-                phase: 'prefetch'
-              }
+              current: chunkIndex + 1,
+              total: sortedPrefetchChunks.length,
+              phase: 'prefetch',
+            }
             : {
-                current: chunkIndex + 1,
-                total: sortedChunks.length,
-                phase: 'viewport'
-              },
-          timestamp: new Date().toISOString()
+              current: chunkIndex + 1,
+              total: sortedChunks.length,
+              phase: 'viewport',
+            },
+          timestamp: new Date().toISOString(),
         })
 
         if (isPrefetch) {
@@ -170,7 +189,7 @@ async function handleViewportUpdate(peer: any, data: {
             requestId,
             chunksStreamed: streamedViewportCount,
             prefetchChunksStreamed: streamedPrefetchCount,
-            timestamp: new Date().toISOString()
+            timestamp: new Date().toISOString(),
           })
         }
       } catch (error) {
@@ -181,7 +200,7 @@ async function handleViewportUpdate(peer: any, data: {
           chunkY,
           requestId,
           priority: isPrefetch ? 'low' : 'viewport',
-          error: 'Failed to generate chunk'
+          error: 'Failed to generate chunk',
         })
 
         // Continue with next chunk even if one fails
@@ -202,7 +221,7 @@ async function handleViewportUpdate(peer: any, data: {
         requestId,
         chunksStreamed: 0,
         prefetchChunksStreamed: 0,
-        timestamp: new Date().toISOString()
+        timestamp: new Date().toISOString(),
       })
     }
   } catch (error) {
@@ -210,12 +229,14 @@ async function handleViewportUpdate(peer: any, data: {
     peer.send({
       type: 'viewportError',
       requestId,
-      error: 'Failed to setup chunk streaming'
+      error: 'Failed to setup chunk streaming',
     })
   }
 }
 
-function calculatePrefetchRing(visibleChunks: Array<{ chunkX: number; chunkY: number }>): Array<{ chunkX: number; chunkY: number }> {
+function calculatePrefetchRing(
+  visibleChunks: Array<{ chunkX: number; chunkY: number }>,
+): Array<{ chunkX: number; chunkY: number }> {
   if (visibleChunks.length === 0) return []
 
   const visibleSet = new Set(visibleChunks.map(chunk => `${chunk.chunkX},${chunk.chunkY}`))

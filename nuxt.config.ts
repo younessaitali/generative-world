@@ -5,7 +5,7 @@ export default defineNuxtConfig({
   modules: ['@nuxt/eslint', '@nuxt/ui', '@pinia/nuxt', '@vueuse/nuxt'],
   nitro: {
     experimental: {
-      websocket: true
-    }
-  }
+      websocket: true,
+    },
+  },
 })
