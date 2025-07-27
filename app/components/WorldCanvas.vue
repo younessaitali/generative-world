@@ -1,317 +1,103 @@
 <script setup lang="ts">
-import { useTemplateRef, onMounted, watch } from 'vue'
-import { useEventListener, useDebounceFn, useWebSocket } from '@vueuse/core'
+import { useTemplateRef } from 'vue'
+import { useWorldManager } from '~/composables/world/useWorldManager'
 
-const canvas = useTemplateRef<HTMLCanvasElement>('canvas')
-const worldStore = useWorldStore()
+const canvasContainer = useTemplateRef<HTMLElement>('canvasContainer')
 
-const CHUNK_SIZE = 16 // 16x16 cells per chunk
-const CELL_SIZE = 32 // pixels per cell when zoom = 1
-
-const isDragging = ref(false)
-const lastMousePosition = ref({ x: 0, y: 0 })
-const chunks = ref(new Map<string, number[][]>())
-
-
-const { status,  send } = useWebSocket('/ws/world-stream', {
-  autoReconnect: {
-    retries: 5,
-    delay: 1000,
-    onFailed() {
-      console.error('Failed to connect WebSocket after 5 retries')
-    },
+// Only initialize world manager on client side
+const worldManager = import.meta.client ? useWorldManager(canvasContainer, {
+  rendererConfig: {
+    width: 800,  // Default fallback values
+    height: 600,
+    backgroundColor: 0x1a1a1a
   },
-  heartbeat: {
-    message: 'ping',
-    interval: 30000,
-  },
-  onMessage(ws, event) {
-
-    if (!event.data) return
-
-    if(event.data === 'pong') {
-      console.log('WebSocket pong received')
-      return
-    }
-
-    try {
-      const message = JSON.parse(event.data)
-      handleWebSocketMessage(message)
-    } catch (error) {
-      console.error('Error parsing WebSocket message:', error)
-    }
-  },
-})
-
-const getChunkKey = (chunkX: number, chunkY: number) => `${chunkX},${chunkY}`
+  enableInteractions: true,
+  debounceDuration: 250
+}) : null
 
 
-const handleWebSocketMessage = (message: {
-  type: string
-  message?: string
-  chunkX?: number
-  chunkY?: number
-  data?: number[][]
-  priority?: 'viewport' | 'low'
-  chunksStreamed?: number
-  prefetchChunksStreamed?: number
-  progress?: { current: number; total: number; phase?: 'viewport' | 'prefetch' }
-  error?: string
-}) => {
-  switch (message.type) {
-    case 'connected':
-      console.log('WebSocket stream connected:', message.message)
-      break
+onMounted(async () => {
+  if (!worldManager) return
 
-    case 'chunkData': {
-      if (message.chunkX !== undefined && message.chunkY !== undefined && message.data) {
-        const chunkKey = getChunkKey(message.chunkX, message.chunkY)
-        chunks.value.set(chunkKey, message.data)
+  await nextTick()
 
-        // Log progress if available
-        if (message.progress) {
-          const priorityLabel = message.priority === 'low' ? '[PREFETCH]' : '[VIEWPORT]'
-          const phaseLabel = message.progress.phase ? ` (${message.progress.phase})` : ''
-          console.log(`${priorityLabel} Received chunk ${message.chunkX},${message.chunkY} (${message.progress.current}/${message.progress.total})${phaseLabel}`)
-        }
-      }
-      break
-    }
-
-    case 'viewportComplete': {
-      const prefetchInfo = message.prefetchChunksStreamed ? ` + ${message.prefetchChunksStreamed} prefetch chunks` : ''
-      console.log(`Viewport update complete: ${message.chunksStreamed} viewport chunks${prefetchInfo} streamed`)
-      break
-    }
-
-    case 'chunkError':
-    case 'viewportError':
-      console.error('WebSocket error:', message.error)
-      break
-
-    default:
-      console.warn('Unknown WebSocket message type:', message.type)
-  }
-}
-
-const sendViewportUpdate = (visibleChunks: Array<{ chunkX: number; chunkY: number }>) => {
-  if (status.value !== 'OPEN') {
-    console.warn('WebSocket not connected, cannot send viewport update')
+  if (!canvasContainer.value) {
+    console.error('Canvas container not available after mount')
     return
   }
 
-  const neededChunks = visibleChunks.filter(({ chunkX, chunkY }) => {
-    const chunkKey = getChunkKey(chunkX, chunkY)
-    return !chunks.value.has(chunkKey)
+  try {
+    await worldManager.initialize()
+
+    if (canvasContainer.value) {
+      worldManager.resize(
+        canvasContainer.value.clientWidth,
+        canvasContainer.value.clientHeight
+      )
+    }
+
+    console.log('World canvas initialized successfully')
+  } catch (error) {
+    console.error('Failed to initialize world canvas:', error)
+  }
+})
+
+// Expose for debugging (only on client-side)
+if (import.meta.dev && import.meta.client && worldManager) {
+  onMounted(() => {
+    // @ts-expect-error - Exposing for debugging in development
+    window.worldManager = worldManager
   })
-
-  if (neededChunks.length === 0) {
-    return
-  }
-
-  const { camera } = worldStore
-
-  send(JSON.stringify({
-    type: 'updateViewport',
-    visibleChunks: neededChunks,
-    cameraX: camera.x,
-    cameraY: camera.y,
-    cameraZoom: camera.zoom,
-    requestId: `viewport-${Date.now()}`
-  }))
 }
-
-const worldToChunk = (worldX: number, worldY: number) => {
-  return {
-    chunkX: Math.floor(worldX / (CHUNK_SIZE * CELL_SIZE)),
-    chunkY: Math.floor(worldY / (CHUNK_SIZE * CELL_SIZE))
-  }
-}
-
-const calculateVisibleChunks = () => {
-  if (!canvas.value) return []
-
-  const { camera } = worldStore
-
-  const viewportWidth = canvas.value.width / camera.zoom
-  const viewportHeight = canvas.value.height / camera.zoom
-
-  const leftWorld = -camera.x
-  const topWorld = -camera.y
-
-  const rightWorld = leftWorld + viewportWidth
-  const bottomWorld = topWorld + viewportHeight
-
-  const topLeftChunk = worldToChunk(leftWorld, topWorld)
-  const bottomRightChunk = worldToChunk(rightWorld, bottomWorld)
-
-  const padding = 1
-  const minChunkX = topLeftChunk.chunkX - padding
-  const maxChunkX = bottomRightChunk.chunkX + padding
-  const minChunkY = topLeftChunk.chunkY - padding
-  const maxChunkY = bottomRightChunk.chunkY + padding
-
-  const visibleChunks: Array<{ chunkX: number; chunkY: number }> = []
-
-  for (let chunkX = minChunkX; chunkX <= maxChunkX; chunkX++) {
-    for (let chunkY = minChunkY; chunkY <= maxChunkY; chunkY++) {
-      visibleChunks.push({ chunkX, chunkY })
-    }
-  }
-
-  return visibleChunks
-}
-
-const loadVisibleChunks = () => {
-  const visibleChunks = calculateVisibleChunks()
-  if (visibleChunks.length > 0) {
-    sendViewportUpdate(visibleChunks)
-  }
-}
-
-const debouncedLoadChunks = useDebounceFn(loadVisibleChunks, 250)
-
-watch(
-  () => worldStore.camera,
-  () => {
-    debouncedLoadChunks()
-  },
-  { deep: true, immediate: true }
-)
-
-const resizeCanvas = () => {
-  if (canvas.value) {
-    const ctx = canvas.value.getContext('2d')
-    if (ctx) {
-      canvas.value.width = window.innerWidth
-      canvas.value.height = window.innerHeight
-    }
-  }
-}
-
-const handleMouseDown = (event: MouseEvent) => {
-  isDragging.value = true
-  lastMousePosition.value = { x: event.clientX, y: event.clientY }
-}
-
-const handleMouseMove = (event: MouseEvent) => {
-  if (!isDragging.value) return
-
-  const deltaX = event.clientX - lastMousePosition.value.x
-  const deltaY = event.clientY - lastMousePosition.value.y
-
-  worldStore.panCamera(deltaX, deltaY)
-
-  lastMousePosition.value = { x: event.clientX, y: event.clientY }
-}
-
-const handleMouseUp = () => {
-  isDragging.value = false
-}
-
-const handleWheel = (event: WheelEvent) => {
-  event.preventDefault()
-
-  if (!canvas.value) return
-
-  const rect = canvas.value.getBoundingClientRect()
-  const mouseX = event.clientX - rect.left
-  const mouseY = event.clientY - rect.top
-
-  const zoomDelta = -event.deltaY * 0.001
-
-  worldStore.zoomAtPoint(zoomDelta, mouseX, mouseY)
-}
-
-const render = () => {
-
-  if (!canvas.value) return
-
-  const ctx = canvas.value.getContext('2d')
-  if (!ctx) return
-
-  ctx.clearRect(0, 0, canvas.value.width, canvas.value.height)
-
-  const { camera } = worldStore
-
-  ctx.save()
-  ctx.scale(camera.zoom, camera.zoom)
-  ctx.translate(camera.x, camera.y)
-
-  const visibleChunks = calculateVisibleChunks()
-
-  for (const { chunkX, chunkY } of visibleChunks) {
-    const chunkKey = getChunkKey(chunkX, chunkY)
-    const chunkData = chunks.value.get(chunkKey)
-
-    if (chunkData) {
-      const chunkWorldX = chunkX * CHUNK_SIZE * CELL_SIZE
-      const chunkWorldY = chunkY * CHUNK_SIZE * CELL_SIZE
-
-      for (let row = 0; row < CHUNK_SIZE; row++) {
-        for (let col = 0; col < CHUNK_SIZE; col++) {
-          const cellRow = chunkData[row]
-          if (cellRow) {
-            const cellValue = cellRow[col]
-
-            if (cellValue === 0) {
-              ctx.fillStyle = '#3b82f6'
-            } else if (cellValue === 1) {
-              ctx.fillStyle = '#22c55e'
-            } else {
-              ctx.fillStyle = '#6b7280'
-            }
-
-            const cellX = chunkWorldX + col * CELL_SIZE
-            const cellY = chunkWorldY + row * CELL_SIZE
-
-            ctx.fillRect(cellX, cellY, CELL_SIZE, CELL_SIZE)
-          }
-        }
-      }
-    } else {
-      const chunkWorldX = chunkX * CHUNK_SIZE * CELL_SIZE
-      const chunkWorldY = chunkY * CHUNK_SIZE * CELL_SIZE
-
-      ctx.fillStyle = '#f3f4f6'
-      ctx.fillRect(chunkWorldX, chunkWorldY, CHUNK_SIZE * CELL_SIZE, CHUNK_SIZE * CELL_SIZE)
-
-      ctx.strokeStyle = '#d1d5db'
-      ctx.lineWidth = 2 / camera.zoom
-      ctx.strokeRect(chunkWorldX, chunkWorldY, CHUNK_SIZE * CELL_SIZE, CHUNK_SIZE * CELL_SIZE)
-    }
-  }
-
-
-
-  ctx.restore()
-
-  requestAnimationFrame(render)
-}
-
-useEventListener(canvas, 'mousedown', handleMouseDown)
-useEventListener(window, 'mousemove', handleMouseMove)
-useEventListener(window, 'mouseup', handleMouseUp)
-useEventListener(canvas, 'wheel', handleWheel, { passive: false })
-useEventListener(window, 'resize', resizeCanvas)
-
-onMounted(() => {
-  resizeCanvas()
-  requestAnimationFrame(render)
-})
-
-
 </script>
 
 <template>
-  <canvas
-    ref="canvas"
-    class="world-canvas"
-  />
+  <ClientOnly>
+    <div
+      ref="canvasContainer"
+      class="world-canvas-container"
+    >
+      <!-- Loading overlay -->
+      <div
+        v-if="worldManager?.isLoading?.value"
+        class="loading-overlay"
+      >
+        <div class="loading-spinner" />
+        <p>Loading world...</p>
+      </div>
+
+      <!-- Error overlay -->
+      <div
+        v-if="worldManager?.error?.value"
+        class="error-overlay"
+      >
+        <div class="error-content">
+          <h3>Failed to load world</h3>
+          <p>{{ worldManager.error.value.message }}</p>
+          <button
+            class="retry-button"
+            @click="worldManager?.initialize?.()"
+          >
+            Retry
+          </button>
+        </div>
+      </div>
+
+      <!-- PixiJS canvas will be inserted here by the renderer -->
+    </div>
+    <template #fallback>
+      <div class="world-canvas-container">
+        <div class="loading-overlay">
+          <div class="loading-spinner" />
+          <p>Loading world canvas...</p>
+        </div>
+      </div>
+    </template>
+  </ClientOnly>
 </template>
 
 <style scoped>
-.world-canvas {
+.world-canvas-container {
   position: fixed;
   top: 5vh;
   left: 5vh;
@@ -319,14 +105,96 @@ onMounted(() => {
   height: 90vh;
   margin: 0;
   padding: 0;
-  display: block;
   z-index: 1;
   user-select: none;
   cursor: grab;
   border: solid 1px red;
+  overflow: hidden;
 }
 
-.world-canvas:active {
+.world-canvas-container:active {
   cursor: grabbing;
+}
+
+.world-canvas-container :deep(canvas) {
+  display: block;
+  width: 100%;
+  height: 100%;
+}
+
+.loading-overlay {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  background: rgba(0, 0, 0, 0.8);
+  color: white;
+  z-index: 10;
+}
+
+.loading-spinner {
+  width: 40px;
+  height: 40px;
+  border: 4px solid #333;
+  border-top: 4px solid #3b82f6;
+  border-radius: 50%;
+  animation: spin 1s linear infinite;
+  margin-bottom: 1rem;
+}
+
+@keyframes spin {
+  0% { transform: rotate(0deg); }
+  100% { transform: rotate(360deg); }
+}
+
+.error-overlay {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(0, 0, 0, 0.9);
+  z-index: 10;
+}
+
+.error-content {
+  text-align: center;
+  color: white;
+  padding: 2rem;
+  background: rgba(255, 0, 0, 0.1);
+  border: 1px solid #ef4444;
+  border-radius: 8px;
+}
+
+.error-content h3 {
+  margin: 0 0 1rem 0;
+  color: #ef4444;
+}
+
+.error-content p {
+  margin: 0 0 1.5rem 0;
+  opacity: 0.8;
+}
+
+.retry-button {
+  padding: 0.5rem 1rem;
+  background: #3b82f6;
+  color: white;
+  border: none;
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 0.9rem;
+}
+
+.retry-button:hover {
+  background: #2563eb;
 }
 </style>

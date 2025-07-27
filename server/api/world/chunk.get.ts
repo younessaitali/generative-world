@@ -40,7 +40,7 @@ export default defineValidatedEventHandler(
 
     return {
       success: true,
-      data: chunkData,
+      data: { cells: chunkData },
       coordinates: { x, y },
       chunkSize,
       timestamp: new Date().toISOString()

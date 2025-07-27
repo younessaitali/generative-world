@@ -1,60 +1,45 @@
 import { defineStore } from 'pinia'
-
-interface Camera {
-  x: number
-  y: number
-  zoom: number
-}
-
-interface WorldState {
-  camera: Camera
-}
+import { useCamera } from './world/useCamera'
 
 export const useWorldStore = defineStore('world', () => {
-  const camera = ref<Camera>({
-    x: 0,
-    y: 0,
-    zoom: 1.0
+  const cameraComposable = useCamera({
+    initialX: 0,
+    initialY: 0,
+    initialZoom: 1.0,
+    minZoom: 0.1,
+    maxZoom: 10
   })
 
-  const updateCameraPosition = (x: number, y: number) => {
-    camera.value.x = x
-    camera.value.y = y
+  const worldConfig = {
+    chunkSize: 16,
+    cellSize: 32,
+    cacheExpiration: 3600,
+    prefetchRadius: 1
   }
+  const stats = ref({
+    chunksLoaded: 0,
+    chunksVisible: 0,
+    activeConnections: 0
+  })
 
-  const updateCameraZoom = (zoom: number) => {
-    camera.value.zoom = zoom
-  }
 
-  const panCamera = (deltaX: number, deltaY: number) => {
-    camera.value.x += deltaX / camera.value.zoom
-    camera.value.y += deltaY / camera.value.zoom
-  }
-
-  const zoomAtPoint = (zoomDelta: number, mouseX: number, mouseY: number) => {
-    const oldZoom = camera.value.zoom
-    const newZoom = Math.max(0.1, Math.min(10, oldZoom + zoomDelta))
-
-    if (newZoom !== oldZoom) {
-      const zoomFactor = newZoom / oldZoom
-      camera.value.x = mouseX - (mouseX - camera.value.x) * zoomFactor
-      camera.value.y = mouseY - (mouseY - camera.value.y) * zoomFactor
-      camera.value.zoom = newZoom
-    }
-  }
-
-  const resetCamera = () => {
-    camera.value.x = 0
-    camera.value.y = 0
-    camera.value.zoom = 1.0
+  const updateStats = (newStats: Partial<typeof stats.value>) => {
+    Object.assign(stats.value, newStats)
   }
 
   return {
-    camera: readonly(camera),
-    updateCameraPosition,
-    updateCameraZoom,
-    panCamera,
-    zoomAtPoint,
-    resetCamera
+    camera: cameraComposable.camera,
+    setPosition: cameraComposable.setPosition,
+    setZoom: cameraComposable.setZoom,
+    panCamera: cameraComposable.panCamera,
+    zoomAtPoint: cameraComposable.zoomAtPoint,
+    handleCameraEvent: cameraComposable.handleCameraEvent,
+    resetCamera: cameraComposable.resetCamera,
+    screenToWorld: cameraComposable.screenToWorld,
+    worldToScreen: cameraComposable.worldToScreen,
+    getViewportBounds: cameraComposable.getViewportBounds,
+    worldConfig: readonly(worldConfig),
+    stats: readonly(stats),
+    updateStats
   }
 })

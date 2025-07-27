@@ -52,20 +52,20 @@ export async function closeRedisClient() {
 export async function getCachedChunk(chunkX: number, chunkY: number): Promise<number[][] | null> {
   try {
     const client = await getRedisClient()
-    
+
     if (!client || !redisAvailable) {
       console.log(`Redis not available - Cache MISS for chunk ${chunkX},${chunkY}`)
       return null
     }
-    
+
     const key = `chunk:${chunkX}:${chunkY}`
     const cachedData = await client.get(key)
-    
+
     if (cachedData) {
       console.log(`Cache HIT for chunk ${chunkX},${chunkY}`)
       return JSON.parse(cachedData)
     }
-    
+
     console.log(`Cache MISS for chunk ${chunkX},${chunkY}`)
     return null
   } catch (error) {
@@ -77,33 +77,18 @@ export async function getCachedChunk(chunkX: number, chunkY: number): Promise<nu
 export async function setCachedChunk(chunkX: number, chunkY: number, chunkData: number[][]): Promise<void> {
   try {
     const client = await getRedisClient()
-    
+
     if (!client || !redisAvailable) {
       console.log(`Redis not available - Cannot cache chunk ${chunkX},${chunkY}`)
       return
     }
-    
+
     const key = `chunk:${chunkX}:${chunkY}`
-    
+
     // Cache for 1 hour (3600 seconds) to prevent infinite memory growth
     await client.setEx(key, 3600, JSON.stringify(chunkData))
     console.log(`Cached chunk ${chunkX},${chunkY}`)
   } catch (error) {
     console.error('Error writing to Redis cache:', error)
-  }
-}
-
-// Optional: Clear all cached chunks (useful for debugging)
-export async function clearChunkCache(): Promise<void> {
-  try {
-    const client = await getRedisClient()
-    const keys = await client.keys('chunk:*')
-    
-    if (keys.length > 0) {
-      await client.del(keys)
-      console.log(`Cleared ${keys.length} cached chunks`)
-    }
-  } catch (error) {
-    console.error('Error clearing chunk cache:', error)
   }
 }

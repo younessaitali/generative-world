@@ -4,7 +4,6 @@ export default defineWebSocketHandler({
   open(peer) {
     console.log(`WebSocket opened: ${peer.id}`)
 
-    // Send initial connection confirmation
     peer.send({
       type: 'connected',
       message: 'World stream connected',
@@ -68,7 +67,7 @@ async function handleChunkRequest(peer: any, data: { chunkX: number; chunkY: num
       type: 'chunkData',
       chunkX,
       chunkY,
-      data: chunkData,
+      data: { cells: chunkData },
       requestId,
       timestamp: new Date().toISOString()
     })
@@ -136,7 +135,7 @@ async function handleViewportUpdate(peer: any, data: {
           type: 'chunkData',
           chunkX,
           chunkY,
-          data: chunkData,
+          data: { cells: chunkData },
           requestId,
           priority: isPrefetch ? 'low' : 'viewport',
           progress: isPrefetch
