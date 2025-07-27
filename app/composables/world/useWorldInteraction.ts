@@ -1,144 +1,144 @@
-import type { CameraEvent } from '~/types/world'
+import type { CameraEvent } from '~/types/world';
 
 export interface UseInteractionOptions {
-  enablePanning?: boolean
-  enableZooming?: boolean
-  zoomSensitivity?: number
+  enablePanning?: boolean;
+  enableZooming?: boolean;
+  zoomSensitivity?: number;
 }
 
 export function useWorldInteraction(
   element: Ref<HTMLElement | null | undefined>,
   options: UseInteractionOptions = {},
 ) {
-  const { enablePanning = true, enableZooming = true, zoomSensitivity = 0.001 } = options
+  const { enablePanning = true, enableZooming = true, zoomSensitivity = 0.001 } = options;
 
-  const isDragging = ref(false)
-  const lastMousePosition = ref({ x: 0, y: 0 })
+  const isDragging = ref(false);
+  const lastMousePosition = ref({ x: 0, y: 0 });
 
-  const cameraEvents = ref<CameraEvent[]>([])
+  const cameraEvents = ref<CameraEvent[]>([]);
 
   const emitCameraEvent = (event: CameraEvent) => {
-    cameraEvents.value.push(event)
+    cameraEvents.value.push(event);
     // Clear events after processing to prevent memory leaks
     nextTick(() => {
-      cameraEvents.value = []
-    })
-  }
+      cameraEvents.value = [];
+    });
+  };
 
   const handleMouseDown = (event: MouseEvent) => {
-    if (!enablePanning) return
+    if (!enablePanning) return;
 
-    isDragging.value = true
-    lastMousePosition.value = { x: event.clientX, y: event.clientY }
+    isDragging.value = true;
+    lastMousePosition.value = { x: event.clientX, y: event.clientY };
 
     // Prevent text selection during drag
-    event.preventDefault()
-  }
+    event.preventDefault();
+  };
 
   const handleMouseMove = (event: MouseEvent) => {
-    if (!isDragging.value || !enablePanning) return
+    if (!isDragging.value || !enablePanning) return;
 
-    const deltaX = event.clientX - lastMousePosition.value.x
-    const deltaY = event.clientY - lastMousePosition.value.y
+    const deltaX = event.clientX - lastMousePosition.value.x;
+    const deltaY = event.clientY - lastMousePosition.value.y;
 
     emitCameraEvent({
       type: 'pan',
       deltaX,
       deltaY,
-    })
+    });
 
-    lastMousePosition.value = { x: event.clientX, y: event.clientY }
-  }
+    lastMousePosition.value = { x: event.clientX, y: event.clientY };
+  };
 
   const handleMouseUp = () => {
-    isDragging.value = false
-  }
+    isDragging.value = false;
+  };
 
   const handleWheel = (event: WheelEvent) => {
-    if (!enableZooming || !element.value) return
+    if (!enableZooming || !element.value) return;
 
-    event.preventDefault()
+    event.preventDefault();
 
-    const rect = element.value.getBoundingClientRect()
-    const mouseX = event.clientX - rect.left
-    const mouseY = event.clientY - rect.top
-    const zoomDelta = -event.deltaY
+    const rect = element.value.getBoundingClientRect();
+    const mouseX = event.clientX - rect.left;
+    const mouseY = event.clientY - rect.top;
+    const zoomDelta = -event.deltaY;
 
     emitCameraEvent({
       type: 'zoom',
       zoomDelta,
       mouseX,
       mouseY,
-    })
-  }
+    });
+  };
 
   const handleTouchStart = (event: TouchEvent) => {
-    if (!enablePanning || event.touches.length !== 1) return
+    if (!enablePanning || event.touches.length !== 1) return;
 
-    const touch = event.touches[0]
-    if (!touch) return
+    const touch = event.touches[0];
+    if (!touch) return;
 
-    isDragging.value = true
-    lastMousePosition.value = { x: touch.clientX, y: touch.clientY }
+    isDragging.value = true;
+    lastMousePosition.value = { x: touch.clientX, y: touch.clientY };
 
-    event.preventDefault()
-  }
+    event.preventDefault();
+  };
 
   const handleTouchMove = (event: TouchEvent) => {
-    if (!isDragging.value || !enablePanning || event.touches.length !== 1) return
+    if (!isDragging.value || !enablePanning || event.touches.length !== 1) return;
 
-    const touch = event.touches[0]
-    if (!touch) return
+    const touch = event.touches[0];
+    if (!touch) return;
 
-    const deltaX = touch.clientX - lastMousePosition.value.x
-    const deltaY = touch.clientY - lastMousePosition.value.y
+    const deltaX = touch.clientX - lastMousePosition.value.x;
+    const deltaY = touch.clientY - lastMousePosition.value.y;
 
     emitCameraEvent({
       type: 'pan',
       deltaX,
       deltaY,
-    })
+    });
 
-    lastMousePosition.value = { x: touch.clientX, y: touch.clientY }
-    event.preventDefault()
-  }
+    lastMousePosition.value = { x: touch.clientX, y: touch.clientY };
+    event.preventDefault();
+  };
 
   const handleTouchEnd = () => {
-    isDragging.value = false
-  }
+    isDragging.value = false;
+  };
 
   const setupEventListeners = () => {
-    if (!element.value) return
+    if (!element.value) return;
 
-    useEventListener(element, 'mousedown', handleMouseDown)
-    useEventListener(window, 'mousemove', handleMouseMove)
-    useEventListener(window, 'mouseup', handleMouseUp)
-    useEventListener(element, 'wheel', handleWheel, { passive: false })
+    useEventListener(element, 'mousedown', handleMouseDown);
+    useEventListener(window, 'mousemove', handleMouseMove);
+    useEventListener(window, 'mouseup', handleMouseUp);
+    useEventListener(element, 'wheel', handleWheel, { passive: false });
 
-    useEventListener(element, 'touchstart', handleTouchStart, { passive: false })
-    useEventListener(element, 'touchmove', handleTouchMove, { passive: false })
-    useEventListener(element, 'touchend', handleTouchEnd)
-  }
+    useEventListener(element, 'touchstart', handleTouchStart, { passive: false });
+    useEventListener(element, 'touchmove', handleTouchMove, { passive: false });
+    useEventListener(element, 'touchend', handleTouchEnd);
+  };
 
   watch(
     element,
-    newElement => {
+    (newElement) => {
       if (newElement) {
-        setupEventListeners()
+        setupEventListeners();
       }
     },
     { immediate: true },
-  )
+  );
 
   const onCameraEvent = (callback: (event: CameraEvent) => void) => {
     watch(
       cameraEvents,
-      events => {
-        events.forEach(callback)
+      (events) => {
+        events.forEach(callback);
       },
       { deep: true },
-    )
-  }
+    );
+  };
 
   return {
     isDragging: readonly(isDragging),
@@ -148,5 +148,5 @@ export function useWorldInteraction(
     enablePanning,
     enableZooming,
     zoomSensitivity,
-  }
+  };
 }

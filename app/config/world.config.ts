@@ -42,6 +42,6 @@ export const WORLD_CONFIG = {
     batchSize: 100, // Number of chunks to process per batch
     debounceDelay: 100, // Debounce delay for user interactions
   },
-} as const
+} as const;
 
-export type WorldConfig = typeof WORLD_CONFIG
+export type WorldConfig = typeof WORLD_CONFIG;

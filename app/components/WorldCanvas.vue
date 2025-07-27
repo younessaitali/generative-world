@@ -1,8 +1,8 @@
 <script setup lang="ts">
-import { useTemplateRef } from 'vue'
-import { useWorldManager } from '~/composables/world/useWorldManager'
+import { useTemplateRef } from 'vue';
+import { useWorldManager } from '~/composables/world/useWorldManager';
 
-const canvasContainer = useTemplateRef<HTMLElement>('canvasContainer')
+const canvasContainer = useTemplateRef<HTMLElement>('canvasContainer');
 
 // Only initialize world manager on client side
 const worldManager = import.meta.client
@@ -15,37 +15,37 @@ const worldManager = import.meta.client
       enableInteractions: true,
       debounceDuration: 250,
     })
-  : null
+  : null;
 
 onMounted(async () => {
-  if (!worldManager) return
+  if (!worldManager) return;
 
-  await nextTick()
+  await nextTick();
 
   if (!canvasContainer.value) {
-    console.error('Canvas container not available after mount')
-    return
+    console.error('Canvas container not available after mount');
+    return;
   }
 
   try {
-    await worldManager.initialize()
+    await worldManager.initialize();
 
     if (canvasContainer.value) {
-      worldManager.resize(canvasContainer.value.clientWidth, canvasContainer.value.clientHeight)
+      worldManager.resize(canvasContainer.value.clientWidth, canvasContainer.value.clientHeight);
     }
 
-    console.log('World canvas initialized successfully')
+    console.log('World canvas initialized successfully');
   } catch (error) {
-    console.error('Failed to initialize world canvas:', error)
+    console.error('Failed to initialize world canvas:', error);
   }
-})
+});
 
 // Expose for debugging (only on client-side)
 if (import.meta.dev && import.meta.client && worldManager) {
   onMounted(() => {
     // @ts-expect-error - Exposing for debugging in development
-    window.worldManager = worldManager
-  })
+    window.worldManager = worldManager;
+  });
 }
 </script>
 

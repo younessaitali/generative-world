@@ -8,4 +8,4 @@ export default defineNuxtConfig({
       websocket: true,
     },
   },
-})
+});

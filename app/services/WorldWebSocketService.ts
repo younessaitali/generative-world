@@ -5,82 +5,84 @@ import type {
   ErrorMessage,
   ViewportCompleteMessage,
   ViewportUpdateMessage,
-} from '~/types/world'
+} from '~/types/world';
 
 export interface WebSocketConfig {
-  url: string
-  autoReconnect?: boolean
-  maxRetries?: number
-  retryDelay?: number
-  heartbeatInterval?: number
+  url: string;
+  autoReconnect?: boolean;
+  maxRetries?: number;
+  retryDelay?: number;
+  heartbeatInterval?: number;
 }
 
 export interface WebSocketEventHandlers {
-  onChunkData?: (message: ChunkDataMessage) => void
-  onError?: (message: ErrorMessage) => void
-  onViewportComplete?: (message: ViewportCompleteMessage) => void
-  onConnected?: (message: string) => void
-  onConnectionError?: (error: Error) => void
+  onChunkData?: (message: ChunkDataMessage) => void;
+  onError?: (message: ErrorMessage) => void;
+  onViewportComplete?: (message: ViewportCompleteMessage) => void;
+  onConnected?: (message: string) => void;
+  onConnectionError?: (error: Error) => void;
 }
 
 export class WorldWebSocketService {
-  private ws: WebSocket | null = null
-  private reconnectAttempts = 0
-  private isConnecting = false
-  private heartbeatTimer: NodeJS.Timeout | null = null
-  private reconnectTimer: NodeJS.Timeout | null = null
+  private ws: WebSocket | null = null;
+  private reconnectAttempts = 0;
+  private isConnecting = false;
+  private heartbeatTimer: NodeJS.Timeout | null = null;
+  private reconnectTimer: NodeJS.Timeout | null = null;
 
   constructor(
     private config: WebSocketConfig,
     private handlers: WebSocketEventHandlers,
-  ) {}
+  ) {
+    // Initialize WebSocket service with config and handlers
+  }
 
   async connect(): Promise<void> {
     if (this.ws?.readyState === WebSocket.OPEN || this.isConnecting) {
-      return
+      return;
     }
 
-    this.isConnecting = true
+    this.isConnecting = true;
 
     try {
-      this.ws = new WebSocket(this.config.url)
-      this.setupEventListeners()
+      this.ws = new WebSocket(this.config.url);
+      this.setupEventListeners();
 
       await new Promise<void>((resolve, reject) => {
         if (!this.ws) {
-          reject(new Error('WebSocket not initialized'))
-          return
+          reject(new Error('WebSocket not initialized'));
+          return;
         }
 
         this.ws.onopen = () => {
-          this.isConnecting = false
-          this.reconnectAttempts = 0
-          this.startHeartbeat()
-          resolve()
-        }
+          this.isConnecting = false;
+          this.reconnectAttempts = 0;
+          this.startHeartbeat();
+          resolve();
+        };
 
-        this.ws.onerror = error => {
-          this.isConnecting = false
-          reject(new Error(`WebSocket connection failed: ${error}`))
-        }
-      })
+        this.ws.onerror = (error) => {
+          this.isConnecting = false;
+          reject(new Error(`WebSocket connection failed: ${error}`));
+        };
+      });
     } catch (error) {
-      this.isConnecting = false
-      this.handleConnectionError(error as Error)
-      throw error
+      this.isConnecting = false;
+      this.handleConnectionError(error as Error);
+      throw error;
     }
   }
 
   send(message: object): void {
     if (!this.isConnected) {
-      console.warn('WebSocket not connected, cannot send message:', message)
-      return
+      console.warn('WebSocket not connected, cannot send message:', message);
+      return;
     }
 
     try {
-      this.ws!.send(JSON.stringify(message))
+      this.ws!.send(JSON.stringify(message));
     } catch (error) {
-      console.error('Failed to send WebSocket message:', error)
+      console.error('Failed to send WebSocket message:', error);
     }
   }
 
@@ -96,161 +98,161 @@ export class WorldWebSocketService {
       cameraY,
       requestId: `viewport-${Date.now()}`,
       timestamp: new Date().toISOString(),
-    }
+    };
 
-    this.send(message)
+    this.send(message);
   }
 
   ping(): void {
     if (this.isConnected) {
-      this.ws!.send('ping')
+      this.ws!.send('ping');
     }
   }
 
   disconnect(): void {
-    this.cleanup()
+    this.cleanup();
   }
 
   get isConnected(): boolean {
-    return this.ws?.readyState === WebSocket.OPEN
+    return this.ws?.readyState === WebSocket.OPEN;
   }
 
   get status(): 'CONNECTING' | 'OPEN' | 'CLOSING' | 'CLOSED' {
-    if (!this.ws) return 'CLOSED'
+    if (!this.ws) return 'CLOSED';
 
     switch (this.ws.readyState) {
       case WebSocket.CONNECTING:
-        return 'CONNECTING'
+        return 'CONNECTING';
       case WebSocket.OPEN:
-        return 'OPEN'
+        return 'OPEN';
       case WebSocket.CLOSING:
-        return 'CLOSING'
+        return 'CLOSING';
       case WebSocket.CLOSED:
-        return 'CLOSED'
+        return 'CLOSED';
       default:
-        return 'CLOSED'
+        return 'CLOSED';
     }
   }
 
   private setupEventListeners(): void {
-    if (!this.ws) return
+    if (!this.ws) return;
 
-    this.ws.onmessage = event => {
-      this.handleMessage(event.data)
-    }
+    this.ws.onmessage = (event) => {
+      this.handleMessage(event.data);
+    };
 
-    this.ws.onclose = event => {
-      this.handleClose(event)
-    }
+    this.ws.onclose = (event) => {
+      this.handleClose(event);
+    };
 
-    this.ws.onerror = error => {
-      console.error('WebSocket error:', error)
-    }
+    this.ws.onerror = (error) => {
+      console.error('WebSocket error:', error);
+    };
   }
 
   private handleMessage(data: string): void {
     if (data === 'pong') {
-      console.log('WebSocket pong received')
-      return
+      console.log('WebSocket pong received');
+      return;
     }
 
     try {
-      const message: WorldMessage = JSON.parse(data)
-      this.routeMessage(message)
+      const message: WorldMessage = JSON.parse(data);
+      this.routeMessage(message);
     } catch (error) {
-      console.error('Error parsing WebSocket message:', error)
+      console.error('Error parsing WebSocket message:', error);
     }
   }
 
   private routeMessage(message: WorldMessage): void {
     switch (message.type) {
       case 'connected': {
-        const connectedMessage = message as WorldMessage & { message?: string }
-        this.handlers.onConnected?.(connectedMessage.message || 'Connected')
-        break
+        const connectedMessage = message as WorldMessage & { message?: string };
+        this.handlers.onConnected?.(connectedMessage.message || 'Connected');
+        break;
       }
 
       case 'chunkData':
-        this.handlers.onChunkData?.(message as ChunkDataMessage)
-        break
+        this.handlers.onChunkData?.(message as ChunkDataMessage);
+        break;
 
       case 'viewportComplete':
-        this.handlers.onViewportComplete?.(message as ViewportCompleteMessage)
-        break
+        this.handlers.onViewportComplete?.(message as ViewportCompleteMessage);
+        break;
 
       case 'chunkError':
       case 'viewportError':
-        this.handlers.onError?.(message as ErrorMessage)
-        break
+        this.handlers.onError?.(message as ErrorMessage);
+        break;
 
       default: {
-        const unknownMessage = message as WorldMessage & { type: string }
-        console.warn('Unknown WebSocket message type:', unknownMessage.type)
+        const unknownMessage = message as WorldMessage & { type: string };
+        console.warn('Unknown WebSocket message type:', unknownMessage.type);
       }
     }
   }
 
   private handleClose(event: CloseEvent): void {
-    console.log('WebSocket closed:', event.code, event.reason)
+    console.log('WebSocket closed:', event.code, event.reason);
 
-    this.cleanup()
+    this.cleanup();
 
     // Attempt reconnection if enabled
     if (this.config.autoReconnect && this.shouldReconnect()) {
-      this.scheduleReconnect()
+      this.scheduleReconnect();
     }
   }
 
   private handleConnectionError(error: Error): void {
-    console.error('WebSocket connection error:', error)
-    this.handlers.onConnectionError?.(error)
+    console.error('WebSocket connection error:', error);
+    this.handlers.onConnectionError?.(error);
   }
 
   private shouldReconnect(): boolean {
-    const maxRetries = this.config.maxRetries ?? 5
-    return this.reconnectAttempts < maxRetries
+    const maxRetries = this.config.maxRetries ?? 5;
+    return this.reconnectAttempts < maxRetries;
   }
 
   private scheduleReconnect(): void {
-    const delay = this.config.retryDelay ?? 1000
-    const backoffDelay = delay * Math.pow(2, this.reconnectAttempts)
+    const delay = this.config.retryDelay ?? 1000;
+    const backoffDelay = delay * Math.pow(2, this.reconnectAttempts);
 
-    console.log(`Reconnecting in ${backoffDelay}ms (attempt ${this.reconnectAttempts + 1})`)
+    console.log(`Reconnecting in ${backoffDelay}ms (attempt ${this.reconnectAttempts + 1})`);
 
     this.reconnectTimer = setTimeout(async () => {
-      this.reconnectAttempts++
+      this.reconnectAttempts++;
       try {
-        await this.connect()
+        await this.connect();
       } catch (error) {
-        console.error('Reconnection failed:', error)
+        console.error('Reconnection failed:', error);
       }
-    }, backoffDelay)
+    }, backoffDelay);
   }
 
   private startHeartbeat(): void {
-    const interval = this.config.heartbeatInterval ?? 30000
+    const interval = this.config.heartbeatInterval ?? 30000;
 
     this.heartbeatTimer = setInterval(() => {
-      this.ping()
-    }, interval)
+      this.ping();
+    }, interval);
   }
 
   private cleanup(): void {
     if (this.heartbeatTimer) {
-      clearInterval(this.heartbeatTimer)
-      this.heartbeatTimer = null
+      clearInterval(this.heartbeatTimer);
+      this.heartbeatTimer = null;
     }
 
     if (this.reconnectTimer) {
-      clearTimeout(this.reconnectTimer)
-      this.reconnectTimer = null
+      clearTimeout(this.reconnectTimer);
+      this.reconnectTimer = null;
     }
 
     if (this.ws) {
-      this.ws.close()
-      this.ws = null
+      this.ws.close();
+      this.ws = null;
     }
 
-    this.isConnecting = false
+    this.isConnecting = false;
   }
 }

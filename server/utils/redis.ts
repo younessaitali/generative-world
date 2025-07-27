@@ -1,76 +1,76 @@
-import { createClient } from 'redis'
+import { createClient } from 'redis';
 
-let redisClient: ReturnType<typeof createClient> | null = null
-let redisAvailable = false
+let redisClient: ReturnType<typeof createClient> | null = null;
+let redisAvailable = false;
 
 export async function getRedisClient() {
   if (!redisClient && !redisAvailable) {
     try {
       redisClient = createClient({
         url: process.env.REDIS_URL || 'redis://localhost:6379',
-      })
+      });
 
-      redisClient.on('error', err => {
-        console.error('Redis Client Error:', err)
-        redisAvailable = false
-      })
+      redisClient.on('error', (err) => {
+        console.error('Redis Client Error:', err);
+        redisAvailable = false;
+      });
 
       redisClient.on('connect', () => {
-        console.log('Redis Client Connected')
-        redisAvailable = true
-      })
+        console.log('Redis Client Connected');
+        redisAvailable = true;
+      });
 
       redisClient.on('ready', () => {
-        console.log('Redis Client Ready')
-        redisAvailable = true
-      })
+        console.log('Redis Client Ready');
+        redisAvailable = true;
+      });
 
       redisClient.on('end', () => {
-        console.log('Redis Client Disconnected')
-        redisAvailable = false
-      })
+        console.log('Redis Client Disconnected');
+        redisAvailable = false;
+      });
 
-      await redisClient.connect()
+      await redisClient.connect();
     } catch (error) {
-      console.warn('Redis not available, falling back to no caching:', error)
-      redisAvailable = false
-      redisClient = null
+      console.warn('Redis not available, falling back to no caching:', error);
+      redisAvailable = false;
+      redisClient = null;
     }
   }
 
-  return redisClient
+  return redisClient;
 }
 
 export async function closeRedisClient() {
   if (redisClient) {
-    await redisClient.quit()
-    redisClient = null
+    await redisClient.quit();
+    redisClient = null;
   }
 }
 
 // Helper functions for chunk caching
 export async function getCachedChunk(chunkX: number, chunkY: number): Promise<number[][] | null> {
   try {
-    const client = await getRedisClient()
+    const client = await getRedisClient();
 
     if (!client || !redisAvailable) {
-      console.log(`Redis not available - Cache MISS for chunk ${chunkX},${chunkY}`)
-      return null
+      console.log(`Redis not available - Cache MISS for chunk ${chunkX},${chunkY}`);
+      return null;
     }
 
-    const key = `chunk:${chunkX}:${chunkY}`
-    const cachedData = await client.get(key)
+    const key = `chunk:${chunkX}:${chunkY}`;
+    const cachedData = await client.get(key);
 
     if (cachedData) {
-      console.log(`Cache HIT for chunk ${chunkX},${chunkY}`)
-      return JSON.parse(cachedData)
+      console.log(`Cache HIT for chunk ${chunkX},${chunkY}`);
+      return JSON.parse(cachedData);
     }
 
-    console.log(`Cache MISS for chunk ${chunkX},${chunkY}`)
-    return null
+    console.log(`Cache MISS for chunk ${chunkX},${chunkY}`);
+    return null;
   } catch (error) {
-    console.error('Error reading from Redis cache:', error)
-    return null
+    console.error('Error reading from Redis cache:', error);
+    return null;
   }
 }
 
@@ -80,19 +80,19 @@ export async function setCachedChunk(
   chunkData: number[][],
 ): Promise<void> {
   try {
-    const client = await getRedisClient()
+    const client = await getRedisClient();
 
     if (!client || !redisAvailable) {
-      console.log(`Redis not available - Cannot cache chunk ${chunkX},${chunkY}`)
-      return
+      console.log(`Redis not available - Cannot cache chunk ${chunkX},${chunkY}`);
+      return;
     }
 
-    const key = `chunk:${chunkX}:${chunkY}`
+    const key = `chunk:${chunkX}:${chunkY}`;
 
     // Cache for 1 hour (3600 seconds) to prevent infinite memory growth
-    await client.setEx(key, 3600, JSON.stringify(chunkData))
-    console.log(`Cached chunk ${chunkX},${chunkY}`)
+    await client.setEx(key, 3600, JSON.stringify(chunkData));
+    console.log(`Cached chunk ${chunkX},${chunkY}`);
   } catch (error) {
-    console.error('Error writing to Redis cache:', error)
+    console.error('Error writing to Redis cache:', error);
   }
 }

@@ -11,5 +11,5 @@ useHead({
       content: 'A real-time generative world explorer using PixiJS and WebGL',
     },
   ],
-})
+});
 </script>

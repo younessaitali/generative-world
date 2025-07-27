@@ -1,20 +1,20 @@
-import { getRedisClient } from '~~/server/utils/redis'
+import { getRedisClient } from '~~/server/utils/redis';
 
-export default defineEventHandler(async event => {
-  const url = getRequestURL(event)
-  const action = url.searchParams.get('action')
+export default defineEventHandler(async (event) => {
+  const url = getRequestURL(event);
+  const action = url.searchParams.get('action');
 
   try {
-    const client = await getRedisClient()
+    const client = await getRedisClient();
 
     switch (action) {
       case 'stats': {
         if (!client) {
-          return { error: 'Redis not available' }
+          return { error: 'Redis not available' };
         }
 
-        const keys = await client.keys('chunk:*')
-        const info = await client.info('memory')
+        const keys = await client.keys('chunk:*');
+        const info = await client.info('memory');
 
         return {
           success: true,
@@ -23,25 +23,25 @@ export default defineEventHandler(async event => {
           redisMemoryInfo: info
             .split('\n')
             .filter(
-              line => line.includes('used_memory_human') || line.includes('used_memory_dataset'),
+              (line) => line.includes('used_memory_human') || line.includes('used_memory_dataset'),
             ),
-        }
+        };
       }
 
       case 'clear': {
         if (!client) {
-          return { error: 'Redis not available' }
+          return { error: 'Redis not available' };
         }
 
-        const keys = await client.keys('chunk:*')
+        const keys = await client.keys('chunk:*');
         if (keys.length > 0) {
-          await client.del(keys)
+          await client.del(keys);
         }
 
         return {
           success: true,
           message: `Cleared ${keys.length} cached chunks`,
-        }
+        };
       }
 
       default:
@@ -53,12 +53,12 @@ export default defineEventHandler(async event => {
             '/api/cache?action=stats - View cache statistics',
             '/api/cache?action=clear - Clear all cached chunks',
           ],
-        }
+        };
     }
   } catch (error) {
     return {
       success: false,
       error: error instanceof Error ? error.message : 'Unknown error',
-    }
+    };
   }
-})
+});
