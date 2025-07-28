@@ -1,4 +1,6 @@
+import type { ResourceVein } from '~/types/world';
 import { getCachedChunk, setCachedChunk } from '~~/server/utils/redis';
+import { generateChunkResources } from '~~/server/utils/resource-generator';
 
 interface WebSocketPeer {
   id: string;
@@ -68,14 +70,14 @@ async function handleChunkRequest(
   const { chunkX, chunkY, requestId } = data;
 
   try {
-    const chunkData = await generateChunk(chunkX, chunkY);
+    const chunkResult = await generateChunk(chunkX, chunkY);
 
     peer.send({
       type: 'chunkData',
       chunkX,
       chunkY,
-      data: { cells: chunkData },
-      resources: [],
+      data: { cells: chunkResult.terrain },
+      resources: chunkResult.resources,
       requestId,
       timestamp: new Date().toISOString(),
     });
@@ -149,7 +151,7 @@ async function handleViewportUpdate(
       const { chunkX, chunkY } = chunkArray[chunkIndex];
 
       try {
-        const chunkData = await generateChunk(chunkX, chunkY);
+        const chunkResult = await generateChunk(chunkX, chunkY);
 
         const progress = isPrefetch
           ? { current: chunkIndex + 1, total: sortedPrefetchChunks.length, phase: 'prefetch' }
@@ -159,8 +161,8 @@ async function handleViewportUpdate(
           type: 'chunkData',
           chunkX,
           chunkY,
-          data: { cells: chunkData },
-          resources: [],
+          data: { cells: chunkResult.terrain },
+          resources: chunkResult.resources,
           requestId,
           priority: isPrefetch ? 'low' : 'viewport',
           progress,
@@ -257,10 +259,19 @@ function calculatePrefetchRing(
   return prefetchChunks;
 }
 
-async function generateChunk(chunkX: number, chunkY: number): Promise<number[][]> {
+async function generateChunk(
+  chunkX: number,
+  chunkY: number,
+): Promise<{ terrain: number[][]; resources: ResourceVein[] }> {
   const cachedChunk = await getCachedChunk(chunkX, chunkY);
   if (cachedChunk) {
-    return cachedChunk;
+    // Handle legacy cache format (just terrain data)
+    if (Array.isArray(cachedChunk)) {
+      // Generate resources for cached terrain
+      const resources = generateChunkResources(chunkX, chunkY, 16);
+      return { terrain: cachedChunk, resources };
+    }
+    return cachedChunk as { terrain: number[][]; resources: ResourceVein[] };
   }
 
   const { createNoise2D } = await import('simplex-noise');
@@ -286,7 +297,11 @@ async function generateChunk(chunkX: number, chunkY: number): Promise<number[][]
     chunkData.push(rowData);
   }
 
+  const resources = generateChunkResources(chunkX, chunkY, chunkSize);
+
+  const chunkResult = { terrain: chunkData, resources };
+
   await setCachedChunk(chunkX, chunkY, chunkData);
 
-  return chunkData;
+  return chunkResult;
 }

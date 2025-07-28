@@ -1,6 +1,7 @@
 import { createNoise2D } from 'simplex-noise';
 import { z } from 'zod/v4';
 import defineValidatedEventHandler from '~~/server/utils/define-validated-event-handler';
+import { generateChunkResources } from '~~/server/utils/resource-generator';
 
 const noise2D = createNoise2D();
 
@@ -38,10 +39,12 @@ export default defineValidatedEventHandler(
       chunkData.push(rowData);
     }
 
+    const resources = generateChunkResources(x, y, chunkSize);
+
     return {
       success: true,
       data: { cells: chunkData },
-      resources: [],
+      resources: resources,
       coordinates: { x, y },
       chunkSize,
       timestamp: new Date().toISOString(),
