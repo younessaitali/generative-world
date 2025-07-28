@@ -41,6 +41,7 @@ export default defineValidatedEventHandler(
     return {
       success: true,
       data: { cells: chunkData },
+      resources: [],
       coordinates: { x, y },
       chunkSize,
       timestamp: new Date().toISOString(),

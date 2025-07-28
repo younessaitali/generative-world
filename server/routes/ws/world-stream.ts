@@ -75,6 +75,7 @@ async function handleChunkRequest(
       chunkX,
       chunkY,
       data: { cells: chunkData },
+      resources: [],
       requestId,
       timestamp: new Date().toISOString(),
     });
@@ -159,6 +160,7 @@ async function handleViewportUpdate(
           chunkX,
           chunkY,
           data: { cells: chunkData },
+          resources: [],
           requestId,
           priority: isPrefetch ? 'low' : 'viewport',
           progress,

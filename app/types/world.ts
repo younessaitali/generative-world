@@ -25,6 +25,7 @@ export interface ChunkData {
   data: number[][];
   size: number;
   timestamp?: string;
+  resources: ResourceVein[];
 }
 
 export type TerrainType = 0 | 1; // 0 = water, 1 = land
@@ -63,6 +64,7 @@ export interface ChunkDataMessage extends WebSocketMessage {
   chunkX: number;
   chunkY: number;
   data: TerrainGrid;
+  resources?: ResourceVein[];
   priority?: 'viewport' | 'low';
   progress?: {
     current: number;
@@ -360,9 +362,4 @@ export interface ChunkResourceData {
   totalValue: number; // Cached total value
   dominantType?: ResourceType; // Most common resource
   lastUpdated: string; // Cache invalidation
-}
-
-// Updated ChunkData to include resources
-export interface EnhancedChunkData extends ChunkData {
-  resources?: ResourceVein[]; // Optional for backward compatibility
 }
