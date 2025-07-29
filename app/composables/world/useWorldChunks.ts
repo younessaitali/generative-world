@@ -1,7 +1,12 @@
-import type { ChunkCoordinate, WorldConfig, TerrainGrid } from '~/types/world';
+import type { ChunkCoordinate, WorldConfig, TerrainGrid, ResourceVein } from '~/types/world';
+
+export interface ChunkWithResources {
+  terrain: TerrainGrid;
+  resources: ResourceVein[];
+}
 
 export function useWorldChunks(config: WorldConfig) {
-  const chunks = ref(new Map<string, TerrainGrid>());
+  const chunks = ref(new Map<string, ChunkWithResources>());
 
   const getChunkKey = (coordinate: ChunkCoordinate): string => {
     return `${coordinate.chunkX},${coordinate.chunkY}`;
@@ -70,14 +75,30 @@ export function useWorldChunks(config: WorldConfig) {
     return chunks.value.has(chunkKey);
   };
 
-  const getChunk = (coordinate: ChunkCoordinate): TerrainGrid | undefined => {
+  const getChunk = (coordinate: ChunkCoordinate): ChunkWithResources | undefined => {
     const chunkKey = getChunkKey(coordinate);
     return chunks.value.get(chunkKey);
   };
 
-  const setChunk = (coordinate: ChunkCoordinate, data: TerrainGrid) => {
+  const getChunkTerrain = (coordinate: ChunkCoordinate): TerrainGrid | undefined => {
     const chunkKey = getChunkKey(coordinate);
-    chunks.value.set(chunkKey, data);
+    const chunk = chunks.value.get(chunkKey);
+    return chunk?.terrain;
+  };
+
+  const getChunkResources = (coordinate: ChunkCoordinate): ResourceVein[] => {
+    const chunkKey = getChunkKey(coordinate);
+    const chunk = chunks.value.get(chunkKey);
+    return chunk?.resources || [];
+  };
+
+  const setChunk = (
+    coordinate: ChunkCoordinate,
+    terrain: TerrainGrid,
+    resources: ResourceVein[] = [],
+  ) => {
+    const chunkKey = getChunkKey(coordinate);
+    chunks.value.set(chunkKey, { terrain, resources });
   };
 
   const removeChunk = (coordinate: ChunkCoordinate) => {
@@ -127,6 +148,8 @@ export function useWorldChunks(config: WorldConfig) {
     getVisibleChunksForViewport,
     isChunkLoaded,
     getChunk,
+    getChunkTerrain,
+    getChunkResources,
     setChunk,
     removeChunk,
     getUnloadedChunks,

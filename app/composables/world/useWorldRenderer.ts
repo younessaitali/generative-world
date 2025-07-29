@@ -1,6 +1,12 @@
 import type { Ref } from 'vue';
 import { PixiRendererService } from '~/services/PixiRendererService';
-import type { RendererConfig, ChunkCoordinate, TerrainGrid, RendererStats } from '~/types/world';
+import type {
+  RendererConfig,
+  ChunkCoordinate,
+  TerrainGrid,
+  RendererStats,
+  ResourceVein,
+} from '~/types/world';
 import { WORLD_CONFIG } from '~/config/world.config';
 
 export function useWorldRenderer(container: Ref<HTMLElement | null | undefined>) {
@@ -35,9 +41,13 @@ export function useWorldRenderer(container: Ref<HTMLElement | null | undefined>)
     rendererService.setCameraTransform(x, y, zoom);
   };
 
-  const addChunk = (coordinate: ChunkCoordinate, data: TerrainGrid) => {
+  const addChunk = (
+    coordinate: ChunkCoordinate,
+    data: TerrainGrid,
+    resources: ResourceVein[] = [],
+  ) => {
     if (!rendererService) return;
-    rendererService.addChunk(coordinate, data);
+    rendererService.addChunk(coordinate, data, resources);
   };
 
   const removeChunk = (coordinate: ChunkCoordinate) => {
@@ -45,9 +55,13 @@ export function useWorldRenderer(container: Ref<HTMLElement | null | undefined>)
     rendererService.removeChunk(coordinate);
   };
 
-  const updateChunk = (coordinate: ChunkCoordinate, data: TerrainGrid) => {
+  const updateChunk = (
+    coordinate: ChunkCoordinate,
+    data: TerrainGrid,
+    resources: ResourceVein[] = [],
+  ) => {
     if (!rendererService) return;
-    rendererService.updateChunk(coordinate, data);
+    rendererService.updateChunk(coordinate, data, resources);
   };
 
   const resize = (width: number, height: number) => {

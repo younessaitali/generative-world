@@ -91,9 +91,10 @@ export function useWorldManager(
         chunkY: message.chunkY,
       };
 
-      chunks.setChunk(coordinate, message.data);
+      const resources = message.resources || [];
+      chunks.setChunk(coordinate, message.data, resources);
 
-      renderer.addChunk(coordinate, message.data);
+      renderer.addChunk(coordinate, message.data, resources);
     });
 
     webSocket.onError((message: ErrorMessage) => {
