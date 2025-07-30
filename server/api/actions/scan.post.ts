@@ -7,7 +7,7 @@ import { ScanLevel as ScanLevelEnum } from '~/types/world';
 const scanBodySchema = z.object({
   x: z.number().min(-1000000).max(1000000),
   y: z.number().min(-1000000).max(1000000),
-  searchRadius: z.number().min(0).max(5).optional().default(2), // Allow configurable search radius
+  searchRadius: z.number().min(0).max(5).optional().default(2),
 });
 
 interface ScanResult {
@@ -26,19 +26,14 @@ interface ScanResult {
   message?: string;
 }
 
-/**
- * Search for resources within a radius around the target coordinates
- */
 function findNearbyResource(
   targetX: number,
   targetY: number,
   radius: number,
   chunkSize: number,
 ): ResourceVein | null {
-  // Generate a list of coordinates to check within the radius
   const coordsToCheck: Array<{ x: number; y: number; distance: number }> = [];
 
-  // Check exact coordinate first
   coordsToCheck.push({ x: targetX, y: targetY, distance: 0 });
 
   // Generate coordinates in expanding rings around the target
@@ -59,10 +54,8 @@ function findNearbyResource(
     }
   }
 
-  // Sort by distance (closest first)
   coordsToCheck.sort((a, b) => a.distance - b.distance);
 
-  // Check each coordinate for resources
   for (const coord of coordsToCheck) {
     const chunkX = Math.floor(coord.x / chunkSize);
     const chunkY = Math.floor(coord.y / chunkSize);
@@ -107,7 +100,6 @@ export default defineValidatedEventHandler(
     const cellY = ((worldY % chunkSize) + chunkSize) % chunkSize;
 
     try {
-      // First try to find resource at exact coordinates, then search nearby
       const resourceVein = findNearbyResource(worldX, worldY, searchRadius, chunkSize);
 
       const scanResult: ScanResult = {
@@ -141,10 +133,10 @@ export default defineValidatedEventHandler(
         // Check if the resource was found at exact coordinates or nearby
         const isExactMatch =
           resourceVein.location.worldX === worldX && resourceVein.location.worldY === worldY;
-        const distance = Math.sqrt(
-          Math.pow(resourceVein.location.worldX - worldX, 2) +
-          Math.pow(resourceVein.location.worldY - worldY, 2),
-        );
+
+        const dx = Math.pow(resourceVein.location.worldX - worldX, 2);
+        const dy = Math.pow(resourceVein.location.worldY - worldY, 2);
+        const distance = Math.sqrt(dx + dy);
 
         if (isExactMatch) {
           scanResult.message = `Resource vein discovered: ${discoveredVein.type} (Grade: ${discoveredVein.quality.grade})`;
