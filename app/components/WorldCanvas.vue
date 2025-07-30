@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { useTemplateRef } from 'vue';
 import { useWorldManager } from '~/composables/world/useWorldManager';
+import { useScanInteraction } from '~/composables/world/useScanInteraction';
 
 const canvasContainer = useTemplateRef<HTMLElement>('canvasContainer');
 
@@ -14,6 +15,14 @@ const worldManager = import.meta.client
       },
       enableInteractions: true,
       debounceDuration: 250,
+    })
+  : null;
+
+const scanInteraction = import.meta.client
+  ? useScanInteraction(canvasContainer, {
+      enableKeyboardScan: true,
+      enableRightClickScan: true,
+      scanKey: 'KeyF',
     })
   : null;
 
@@ -47,6 +56,10 @@ if (import.meta.dev && import.meta.client && worldManager) {
     window.worldManager = worldManager;
   });
 }
+
+const handleCloseScanResult = () => {
+  scanInteraction?.clearScanResult();
+};
 </script>
 
 <template>
@@ -65,6 +78,27 @@ if (import.meta.dev && import.meta.client && worldManager) {
           <p>{{ worldManager.error.value.message }}</p>
           <button class="retry-button" @click="worldManager?.initialize?.()">Retry</button>
         </div>
+      </div>
+
+      <!-- Scan overlay -->
+      <ScanOverlay
+        v-if="scanInteraction"
+        :scan-result="scanInteraction.lastScanResult?.value"
+        :is-scanning="scanInteraction.isScanning?.value"
+        :scan-error="scanInteraction.scanError?.value"
+        @close="handleCloseScanResult"
+      />
+
+      <!-- Instructions overlay -->
+      <div
+        v-if="!worldManager?.isLoading?.value && !worldManager?.error?.value"
+        class="instructions-overlay"
+      >
+        <p><strong>Controls:</strong></p>
+        <p>• Drag to pan</p>
+        <p>• Scroll to zoom</p>
+        <p>• Press <kbd>F</kbd> to scan at cursor</p>
+        <p>• Right-click to scan location</p>
       </div>
     </div>
     <template #fallback>
@@ -182,5 +216,30 @@ if (import.meta.dev && import.meta.client && worldManager) {
 
 .retry-button:hover {
   background: #2563eb;
+}
+
+.instructions-overlay {
+  position: absolute;
+  bottom: 20px;
+  left: 20px;
+  background: rgba(0, 0, 0, 0.8);
+  color: white;
+  padding: 1rem;
+  border-radius: 8px;
+  font-size: 0.875rem;
+  z-index: 10;
+  pointer-events: none;
+}
+
+.instructions-overlay p {
+  margin: 0.25rem 0;
+}
+
+.instructions-overlay kbd {
+  background: rgba(255, 255, 255, 0.2);
+  padding: 0.125rem 0.25rem;
+  border-radius: 3px;
+  font-family: monospace;
+  font-size: 0.75rem;
 }
 </style>
