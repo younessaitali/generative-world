@@ -5,8 +5,9 @@ import type { ResourceVein, ScanLevel } from '~/types/world';
 import { ScanLevel as ScanLevelEnum } from '~/types/world';
 
 const scanBodySchema = z.object({
-  x: z.number().int().min(-1000000).max(1000000),
-  y: z.number().int().min(-1000000).max(1000000),
+  x: z.number().min(-1000000).max(1000000),
+  y: z.number().min(-1000000).max(1000000),
+  searchRadius: z.number().min(0).max(5).optional().default(2), // Allow configurable search radius
 });
 
 interface ScanResult {
@@ -26,6 +27,66 @@ interface ScanResult {
 }
 
 /**
+ * Search for resources within a radius around the target coordinates
+ */
+function findNearbyResource(
+  targetX: number,
+  targetY: number,
+  radius: number,
+  chunkSize: number,
+): ResourceVein | null {
+  // Generate a list of coordinates to check within the radius
+  const coordsToCheck: Array<{ x: number; y: number; distance: number }> = [];
+
+  // Check exact coordinate first
+  coordsToCheck.push({ x: targetX, y: targetY, distance: 0 });
+
+  // Generate coordinates in expanding rings around the target
+  for (let r = 1; r <= radius; r++) {
+    for (let dx = -r; dx <= r; dx++) {
+      for (let dy = -r; dy <= r; dy++) {
+        // Skip if not on the edge of the current ring
+        if (Math.abs(dx) !== r && Math.abs(dy) !== r) continue;
+
+        const x = Math.round(targetX + dx);
+        const y = Math.round(targetY + dy);
+        const distance = Math.sqrt(dx * dx + dy * dy);
+
+        if (distance <= radius) {
+          coordsToCheck.push({ x, y, distance });
+        }
+      }
+    }
+  }
+
+  // Sort by distance (closest first)
+  coordsToCheck.sort((a, b) => a.distance - b.distance);
+
+  // Check each coordinate for resources
+  for (const coord of coordsToCheck) {
+    const chunkX = Math.floor(coord.x / chunkSize);
+    const chunkY = Math.floor(coord.y / chunkSize);
+
+    try {
+      const chunkResources = generateChunkResources(chunkX, chunkY, chunkSize);
+      const resourceVein = chunkResources.find(
+        (vein: ResourceVein) =>
+          vein.location.worldX === coord.x && vein.location.worldY === coord.y,
+      );
+
+      if (resourceVein) {
+        return resourceVein;
+      }
+    } catch (error) {
+      // Continue searching if this chunk fails
+      console.warn(`Failed to generate chunk (${chunkX}, ${chunkY}):`, error);
+    }
+  }
+
+  return null;
+}
+
+/**
  * POST /api/actions/scan
  *
  * Scans a specific world coordinate for resource veins.
@@ -36,7 +97,7 @@ export default defineValidatedEventHandler(
     body: scanBodySchema,
   },
   async (event): Promise<ScanResult> => {
-    const { x: worldX, y: worldY } = event.context.validated.body;
+    const { x: worldX, y: worldY, searchRadius } = event.context.validated.body;
 
     const chunkSize = 16;
     const chunkX = Math.floor(worldX / chunkSize);
@@ -46,11 +107,8 @@ export default defineValidatedEventHandler(
     const cellY = ((worldY % chunkSize) + chunkSize) % chunkSize;
 
     try {
-      const chunkResources = generateChunkResources(chunkX, chunkY, chunkSize);
-
-      const resourceVein = chunkResources.find(
-        (vein: ResourceVein) => vein.location.worldX === worldX && vein.location.worldY === worldY,
-      );
+      // First try to find resource at exact coordinates, then search nearby
+      const resourceVein = findNearbyResource(worldX, worldY, searchRadius, chunkSize);
 
       const scanResult: ScanResult = {
         success: true,
@@ -79,9 +137,22 @@ export default defineValidatedEventHandler(
         };
 
         scanResult.discovered = discoveredVein;
-        scanResult.message = `Resource vein discovered: ${discoveredVein.type} (Grade: ${discoveredVein.quality.grade})`;
+
+        // Check if the resource was found at exact coordinates or nearby
+        const isExactMatch =
+          resourceVein.location.worldX === worldX && resourceVein.location.worldY === worldY;
+        const distance = Math.sqrt(
+          Math.pow(resourceVein.location.worldX - worldX, 2) +
+          Math.pow(resourceVein.location.worldY - worldY, 2),
+        );
+
+        if (isExactMatch) {
+          scanResult.message = `Resource vein discovered: ${discoveredVein.type} (Grade: ${discoveredVein.quality.grade})`;
+        } else {
+          scanResult.message = `Resource vein detected nearby: ${discoveredVein.type} (Grade: ${discoveredVein.quality.grade}) - ${distance.toFixed(1)} units away`;
+        }
       } else {
-        scanResult.message = 'No resources found at this location';
+        scanResult.message = `No resources found within ${searchRadius} units of this location`;
       }
 
       return scanResult;
