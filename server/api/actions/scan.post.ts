@@ -1,8 +1,8 @@
 import { z } from 'zod/v4';
 import defineValidatedEventHandler from '~~/server/utils/define-validated-event-handler';
 import { generateChunkResources } from '~~/server/utils/resource-generator';
-import type { ResourceVein, ScanLevel } from '~/types/world';
-import { ScanLevel as ScanLevelEnum } from '~/types/world';
+import type { ResourceVein, ScanLevel } from '#shared/types/world';
+import { ScanLevel as ScanLevelEnum } from '#shared/types/world';
 
 const scanBodySchema = z.object({
   x: z.number().min(-1000000).max(1000000),

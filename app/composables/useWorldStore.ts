@@ -1,5 +1,6 @@
+import { ref, readonly } from '#imports';
 import { defineStore } from 'pinia';
-import { useCamera } from './world/useCamera';
+import { useCamera } from '~/composables/world/useCamera';
 
 export const useWorldStore = defineStore('world', () => {
   const cameraComposable = useCamera({

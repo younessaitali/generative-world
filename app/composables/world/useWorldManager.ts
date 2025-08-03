@@ -1,8 +1,8 @@
 import { useDebounceFn } from '@vueuse/core';
-import { useWorldRenderer } from './useWorldRenderer';
-import { useWorldWebSocket } from './useWorldWebSocket';
-import { useWorldChunks } from './useWorldChunks';
-import { useWorldInteraction } from './useWorldInteraction';
+import { useWorldRenderer } from '~/composables/world/useWorldRenderer';
+import { useWorldWebSocket } from '~/composables/world/useWorldWebSocket';
+import { useWorldChunks } from '~/composables/world/useWorldChunks';
+import { useWorldInteraction } from '~/composables/world/useWorldInteraction';
 import type {
   RendererConfig,
   ChunkCoordinate,
@@ -11,7 +11,7 @@ import type {
   CameraEvent,
   ErrorMessage,
   ViewportCompleteMessage,
-} from '~/types/world';
+} from '#shared/types/world';
 
 export interface UseWorldManagerOptions {
   rendererConfig?: RendererConfig;

@@ -8,13 +8,13 @@ import type {
   ResourceGrade,
   ClimateType,
   EnvironmentalHazard,
-} from '~/types/world';
+} from '#shared/types/world';
 import {
   ResourceGrade as ResourceGradeEnum,
   ClimateType as ClimateTypeEnum,
   EnvironmentalHazard as EnvironmentalHazardEnum,
   ScanLevel as ScanLevelEnum,
-} from '~/types/world';
+} from '#shared/types/world';
 
 /**
  * Resource Generation Utility

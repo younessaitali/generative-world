@@ -1,5 +1,4 @@
-import type { CameraEvent } from '~/types/world';
-import { useWorldScan } from './useWorldScan';
+import { useWorldScan } from '~/composables/world/useWorldScan';
 
 export interface UseScanInteractionOptions {
   enableKeyboardScan?: boolean;

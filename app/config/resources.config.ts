@@ -1,5 +1,5 @@
-import { ResourceType, FormationType, ProcessingStep, MarketDemand } from '~/types/world';
-import type { ResourceConfig } from '~/types/world';
+import { ResourceType, FormationType, ProcessingStep, MarketDemand } from '#shared/types/world';
+import type { ResourceConfig } from '#shared/types/world';
 
 /**
  * Resource Configuration Database

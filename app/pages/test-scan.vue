@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { ref } from '#imports';
 import { useWorldScan } from '~/composables/world/useWorldScan';
 
 const { performScan, isScanning, lastScanResult, scanError, clearScanResult } = useWorldScan();

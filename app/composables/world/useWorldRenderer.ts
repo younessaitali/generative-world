@@ -6,7 +6,7 @@ import type {
   TerrainGrid,
   RendererStats,
   ResourceVein,
-} from '~/types/world';
+} from '#shared/types/world';
 import { WORLD_CONFIG } from '~/config/world.config';
 
 export function useWorldRenderer(container: Ref<HTMLElement | null | undefined>) {

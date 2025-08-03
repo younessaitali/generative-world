@@ -1,4 +1,4 @@
-import type { ChunkCoordinate, WorldConfig, TerrainGrid, ResourceVein } from '~/types/world';
+import type { ChunkCoordinate, WorldConfig, TerrainGrid, ResourceVein } from '#shared/types/world';
 
 export interface ChunkWithResources {
   terrain: TerrainGrid;

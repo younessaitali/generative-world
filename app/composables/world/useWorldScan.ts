@@ -1,4 +1,4 @@
-import type { ResourceType, ResourceVein, ScanLevel } from '~/types/world';
+import type { ResourceType, ResourceVein, ScanLevel } from '#shared/types/world';
 
 export interface ScanResult {
   x: number;

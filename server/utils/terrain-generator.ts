@@ -1,5 +1,5 @@
 import { createNoise2D } from 'simplex-noise';
-import { ExtendedTerrainType } from '~/types/world';
+import { ExtendedTerrainType } from '#shared/types/world';
 
 /**
  * Multi-Layer Terrain Generation Utility
@@ -171,35 +171,4 @@ export function getTerrainNoiseValues(worldX: number, worldY: number) {
       worldY * TERRAIN_GENERATION_CONFIG.TEMPERATURE_SCALE + 2000,
     ),
   };
-}
-
-/**
- * Convert ExtendedTerrainType to legacy numeric format for backward compatibility
- */
-export function terrainTypeToNumber(terrainType: ExtendedTerrainType): number {
-  const mapping: Record<ExtendedTerrainType, number> = {
-    [ExtendedTerrainType.OCEAN]: 0,
-    [ExtendedTerrainType.PLAINS]: 1,
-    [ExtendedTerrainType.HILLS]: 2,
-    [ExtendedTerrainType.MOUNTAINS]: 3,
-    [ExtendedTerrainType.DESERT]: 4,
-    [ExtendedTerrainType.FOREST]: 5,
-    [ExtendedTerrainType.SWAMP]: 6,
-    [ExtendedTerrainType.TUNDRA]: 7,
-  };
-
-  return mapping[terrainType] ?? 1; // Default to plains
-}
-
-/**
- * Generate terrain data in legacy numeric format for WebSocket compatibility
- */
-export function generateChunkTerrainLegacy(
-  chunkX: number,
-  chunkY: number,
-  chunkSize: number = 16,
-): number[][] {
-  const terrainData = generateChunkTerrain(chunkX, chunkY, chunkSize);
-
-  return terrainData.map((row) => row.map((terrainType) => terrainTypeToNumber(terrainType)));
 }

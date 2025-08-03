@@ -4,12 +4,12 @@ import type {
   TerrainGrid,
   RendererStats,
   ResourceVein,
-  ExtendedTerrainType
-} from '../types/world';
-import { createServiceLogger } from '../utils/logger';
-import { WORLD_CONFIG, type WorldConfig } from '../config/world.config';
-import { getResourceColor, getResourceColorDark } from '../utils/resource-colors';
-import { getTerrainPixiColor, getTerrainPixiColorDarkened } from '../utils/terrain-colors';
+  ExtendedTerrainType,
+} from '#shared/types/world';
+import { createServiceLogger } from '~/utils/logger';
+import { WORLD_CONFIG, type WorldConfig } from '~/config/world.config';
+import { getResourceColor } from '~/utils/resource-colors';
+import { getTerrainPixiColor, getTerrainPixiColorDarkened } from '~/utils/terrain-colors';
 
 interface PixiChunk {
   container: PIXI.Container;
@@ -80,7 +80,7 @@ export class PixiRendererService {
 
     const cellSize = this.config.chunk.cellSize;
 
-    const { ExtendedTerrainType } = await import('../types/world');
+    const { ExtendedTerrainType } = await import('#shared/types/world');
 
     const terrainTypes = Object.values(ExtendedTerrainType);
 

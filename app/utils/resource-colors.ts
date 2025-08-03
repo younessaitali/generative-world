@@ -1,4 +1,4 @@
-import { ResourceType } from '~/types/world';
+import { ResourceType } from '#shared/types/world';
 
 /**
  * Resource color mapping for visual differentiation

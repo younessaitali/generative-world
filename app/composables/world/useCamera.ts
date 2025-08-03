@@ -1,4 +1,4 @@
-import type { Camera, CameraEvent } from '~/types/world';
+import type { Camera, CameraEvent } from '#shared/types/world';
 
 export interface UseCameraOptions {
   initialX?: number;

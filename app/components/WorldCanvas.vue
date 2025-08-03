@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { useTemplateRef } from 'vue';
+import { useTemplateRef, onMounted, nextTick } from '#imports';
 import { useWorldManager } from '~/composables/world/useWorldManager';
 import { useScanInteraction } from '~/composables/world/useScanInteraction';
 

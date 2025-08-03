@@ -7,7 +7,7 @@ import type {
   ChunkDataMessage,
   ErrorMessage,
   ViewportCompleteMessage,
-} from '~/types/world';
+} from '#shared/types/world';
 
 export interface UseWorldWebSocketOptions {
   url?: string;

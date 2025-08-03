@@ -1,4 +1,4 @@
-import type { CameraEvent } from '~/types/world';
+import type { CameraEvent } from '#shared/types/world';
 
 export interface UseInteractionOptions {
   enablePanning?: boolean;

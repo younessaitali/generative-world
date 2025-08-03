@@ -1,5 +1,5 @@
+import type { ExtendedTerrainType } from '#shared/types/world';
 import { createClient } from 'redis';
-import type { ExtendedTerrainType } from '~/types/world';
 
 let redisClient: ReturnType<typeof createClient> | null = null;
 let redisAvailable = false;
@@ -50,7 +50,10 @@ export async function closeRedisClient() {
 }
 
 // Helper functions for chunk caching
-export async function getCachedChunk(chunkX: number, chunkY: number): Promise<ExtendedTerrainType[][] | number[][] | null> {
+export async function getCachedChunk(
+  chunkX: number,
+  chunkY: number,
+): Promise<ExtendedTerrainType[][] | number[][] | null> {
   try {
     const client = await getRedisClient();
 

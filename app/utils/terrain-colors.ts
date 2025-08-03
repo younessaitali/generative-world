@@ -1,4 +1,4 @@
-import { ExtendedTerrainType } from '~/types/world';
+import { ExtendedTerrainType } from '#shared/types/world';
 
 /**
  * Terrain Color Palette

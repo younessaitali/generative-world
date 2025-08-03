@@ -3,59 +3,53 @@ import {
   ClimateType,
   ResourceType,
   type TerrainProperties,
-} from '~/types/world';
+} from '#shared/types/world';
 
 /**
  * Terrain Configuration System
- *
- * Defines properties and characteristics for each terrain type including:
- * - Visual properties (colors, textures, rendering)
- * - Physical properties (elevation, traversal)
- * - Environmental properties (climate preferences, resource associations)
- * - Gameplay properties (movement modifiers, accessibility)
  */
 
 export const TERRAIN_CONFIGS: Record<ExtendedTerrainType, TerrainProperties> = {
   [ExtendedTerrainType.OCEAN]: {
     type: ExtendedTerrainType.OCEAN,
-    baseColor: 0x1a5490, // Strategic ocean blue
+    baseColor: 0x1a5490,
     elevation: {
-      min: -1.0, // Below sea level
-      max: -0.2, // Shallow areas
+      min: -1.0,
+      max: -0.2,
       variance: 0.3,
     },
     traversal: {
-      difficulty: 0.9, // Very difficult to traverse without boats
-      speedModifier: 0.1, // Very slow movement
+      difficulty: 0.9,
+      speedModifier: 0.1,
     },
     visual: {
       pattern: 'waves',
       opacity: 1.0,
-      animated: true, // Wave animations
+      animated: true,
     },
     climate: {
       preferredClimates: [ClimateType.TEMPERATE, ClimateType.TROPICAL, ClimateType.ARCTIC],
-      temperatureModifier: 0.1, // Moderating temperature effect
-      humidityModifier: 0.8, // High humidity
+      temperatureModifier: 0.1,
+      humidityModifier: 0.8,
     },
     resources: {
-      preferredResources: [ResourceType.IRON, ResourceType.COPPER, ResourceType.NICKEL], // Ocean floor minerals
-      resourceDensityModifier: 0.2, // Low mineral density
-      accessibilityModifier: 0.1, // Very difficult to access
+      preferredResources: [ResourceType.IRON, ResourceType.COPPER, ResourceType.NICKEL],
+      resourceDensityModifier: 0.2,
+      accessibilityModifier: 0.1,
     },
   },
 
   [ExtendedTerrainType.PLAINS]: {
     type: ExtendedTerrainType.PLAINS,
-    baseColor: 0x7c9c5e, // Natural grassland green
+    baseColor: 0x7c9c5e,
     elevation: {
-      min: 0.0, // Sea level
-      max: 0.3, // Gentle elevation
+      min: 0.0,
+      max: 0.3,
       variance: 0.1,
     },
     traversal: {
-      difficulty: 0.1, // Very easy to traverse
-      speedModifier: 1.0, // Normal movement speed
+      difficulty: 0.1,
+      speedModifier: 1.0,
     },
     visual: {
       pattern: 'grass',
@@ -64,13 +58,13 @@ export const TERRAIN_CONFIGS: Record<ExtendedTerrainType, TerrainProperties> = {
     },
     climate: {
       preferredClimates: [ClimateType.TEMPERATE, ClimateType.ARID],
-      temperatureModifier: 0.0, // Neutral temperature
-      humidityModifier: 0.0, // Neutral humidity
+      temperatureModifier: 0.0,
+      humidityModifier: 0.0,
     },
     resources: {
-      preferredResources: [ResourceType.IRON, ResourceType.COPPER, ResourceType.ALUMINUM], // Common surface minerals
-      resourceDensityModifier: 0.8, // High accessibility
-      accessibilityModifier: 0.9, // Easy to access
+      preferredResources: [ResourceType.IRON, ResourceType.COPPER, ResourceType.ALUMINUM],
+      resourceDensityModifier: 0.8,
+      accessibilityModifier: 0.9,
     },
   },
 
@@ -345,8 +339,4 @@ export function isValidTerrainTransition(
 
 export function getTerrainColor(terrainType: ExtendedTerrainType): number {
   return TERRAIN_CONFIGS[terrainType].baseColor;
-}
-
-export function isValidTerrainType(value: string): value is ExtendedTerrainType {
-  return Object.values(ExtendedTerrainType).includes(value as ExtendedTerrainType);
 }

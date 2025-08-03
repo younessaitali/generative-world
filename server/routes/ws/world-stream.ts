@@ -1,4 +1,4 @@
-import type { ResourceVein, ExtendedTerrainType } from '~/types/world';
+import type { ResourceVein, ExtendedTerrainType } from '#shared/types/world';
 import { getCachedChunk, setCachedChunk } from '~~/server/utils/redis';
 import { generateChunkResources } from '~~/server/utils/resource-generator';
 import { generateChunkTerrain } from '~~/server/utils/terrain-generator';

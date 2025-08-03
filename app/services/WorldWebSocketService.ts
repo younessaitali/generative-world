@@ -5,7 +5,7 @@ import type {
   ErrorMessage,
   ViewportCompleteMessage,
   ViewportUpdateMessage,
-} from '~/types/world';
+} from '#shared/types/world';
 
 export interface WebSocketConfig {
   url: string;
