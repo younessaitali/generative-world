@@ -18,7 +18,7 @@ import {
 export const TERRAIN_CONFIGS: Record<ExtendedTerrainType, TerrainProperties> = {
   [ExtendedTerrainType.OCEAN]: {
     type: ExtendedTerrainType.OCEAN,
-    baseColor: 0x2e86ab, // Deep blue
+    baseColor: 0x1a5490, // Strategic ocean blue
     elevation: {
       min: -1.0, // Below sea level
       max: -0.2, // Shallow areas
@@ -47,7 +47,7 @@ export const TERRAIN_CONFIGS: Record<ExtendedTerrainType, TerrainProperties> = {
 
   [ExtendedTerrainType.PLAINS]: {
     type: ExtendedTerrainType.PLAINS,
-    baseColor: 0x90ee90, // Light green
+    baseColor: 0x7c9c5e, // Natural grassland green
     elevation: {
       min: 0.0, // Sea level
       max: 0.3, // Gentle elevation
@@ -76,7 +76,7 @@ export const TERRAIN_CONFIGS: Record<ExtendedTerrainType, TerrainProperties> = {
 
   [ExtendedTerrainType.HILLS]: {
     type: ExtendedTerrainType.HILLS,
-    baseColor: 0x8fbc8f, // Dark sea green
+    baseColor: 0x8b7355, // Earthy hill brown
     elevation: {
       min: 0.2, // Above plains
       max: 0.6, // Moderate elevation
@@ -110,7 +110,7 @@ export const TERRAIN_CONFIGS: Record<ExtendedTerrainType, TerrainProperties> = {
 
   [ExtendedTerrainType.MOUNTAINS]: {
     type: ExtendedTerrainType.MOUNTAINS,
-    baseColor: 0x696969, // Dim gray
+    baseColor: 0x6b6b6b, // Rocky mountain gray
     elevation: {
       min: 0.6, // High elevation
       max: 1.0, // Peak elevation
@@ -144,7 +144,7 @@ export const TERRAIN_CONFIGS: Record<ExtendedTerrainType, TerrainProperties> = {
 
   [ExtendedTerrainType.DESERT]: {
     type: ExtendedTerrainType.DESERT,
-    baseColor: 0xf4a460, // Sandy brown
+    baseColor: 0xd4a76a, // Desert sand color
     elevation: {
       min: 0.0, // Variable elevation
       max: 0.4, // Moderate hills
@@ -178,7 +178,7 @@ export const TERRAIN_CONFIGS: Record<ExtendedTerrainType, TerrainProperties> = {
 
   [ExtendedTerrainType.FOREST]: {
     type: ExtendedTerrainType.FOREST,
-    baseColor: 0x228b22, // Forest green
+    baseColor: 0x2d5016, // Deep forest green
     elevation: {
       min: 0.0, // Sea level
       max: 0.5, // Moderate elevation
@@ -212,7 +212,7 @@ export const TERRAIN_CONFIGS: Record<ExtendedTerrainType, TerrainProperties> = {
 
   [ExtendedTerrainType.SWAMP]: {
     type: ExtendedTerrainType.SWAMP,
-    baseColor: 0x556b2f, // Dark olive green
+    baseColor: 0x4a5d3a, // Murky swamp green
     elevation: {
       min: -0.1, // Below sea level
       max: 0.2, // Low elevation
@@ -246,7 +246,7 @@ export const TERRAIN_CONFIGS: Record<ExtendedTerrainType, TerrainProperties> = {
 
   [ExtendedTerrainType.TUNDRA]: {
     type: ExtendedTerrainType.TUNDRA,
-    baseColor: 0xe0e0e0, // Light gray
+    baseColor: 0xb8c5d1, // Cold tundra blue-gray
     elevation: {
       min: 0.0, // Variable
       max: 0.3, // Generally flat

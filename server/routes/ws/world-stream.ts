@@ -1,7 +1,7 @@
-import type { ResourceVein } from '~/types/world';
+import type { ResourceVein, ExtendedTerrainType } from '~/types/world';
 import { getCachedChunk, setCachedChunk } from '~~/server/utils/redis';
 import { generateChunkResources } from '~~/server/utils/resource-generator';
-import { generateChunkTerrainLegacy } from '~~/server/utils/terrain-generator';
+import { generateChunkTerrain } from '~~/server/utils/terrain-generator';
 
 interface WebSocketPeer {
   id: string;
@@ -263,19 +263,21 @@ function calculatePrefetchRing(
 async function generateChunk(
   chunkX: number,
   chunkY: number,
-): Promise<{ terrain: number[][]; resources: ResourceVein[] }> {
+): Promise<{ terrain: ExtendedTerrainType[][]; resources: ResourceVein[] }> {
   const cachedChunk = await getCachedChunk(chunkX, chunkY);
   if (cachedChunk) {
     // Handle legacy cache format (just terrain data)
     if (Array.isArray(cachedChunk)) {
-      // Generate resources for cached terrain
+      // For legacy numeric terrain data, convert to string-based terrain
+      // This is temporary for cached data compatibility
       const resources = generateChunkResources(chunkX, chunkY, 16);
-      return { terrain: cachedChunk, resources };
+      const stringTerrain = generateChunkTerrain(chunkX, chunkY, 16);
+      return { terrain: stringTerrain, resources };
     }
-    return cachedChunk as { terrain: number[][]; resources: ResourceVein[] };
+    return cachedChunk as { terrain: ExtendedTerrainType[][]; resources: ResourceVein[] };
   }
 
-  const terrainData = generateChunkTerrainLegacy(chunkX, chunkY, 16);
+  const terrainData = generateChunkTerrain(chunkX, chunkY, 16);
 
   const resources = generateChunkResources(chunkX, chunkY, 16);
 

@@ -1,8 +1,15 @@
 import * as PIXI from 'pixi.js';
-import type { ChunkCoordinate, TerrainGrid, RendererStats, ResourceVein } from '../types/world';
+import type {
+  ChunkCoordinate,
+  TerrainGrid,
+  RendererStats,
+  ResourceVein,
+  ExtendedTerrainType
+} from '../types/world';
 import { createServiceLogger } from '../utils/logger';
 import { WORLD_CONFIG, type WorldConfig } from '../config/world.config';
 import { getResourceColor, getResourceColorDark } from '../utils/resource-colors';
+import { getTerrainPixiColor, getTerrainPixiColorDarkened } from '../utils/terrain-colors';
 
 interface PixiChunk {
   container: PIXI.Container;
@@ -16,8 +23,9 @@ export class PixiRendererService {
   private chunkLayer: PIXI.Container | null = null;
   private worldContainer: PIXI.Container | null = null;
   private container: HTMLElement | null = null;
-  private waterTexture: PIXI.Texture | null = null;
-  private landTexture: PIXI.Texture | null = null;
+
+  private terrainTextures = new Map<ExtendedTerrainType, PIXI.Texture>();
+  private terrainTexturesDarkened = new Map<ExtendedTerrainType, PIXI.Texture>();
   private unknownTexture: PIXI.Texture | null = null;
   private resourceTextures = new Map<number, PIXI.Texture>();
   private config: WorldConfig;
@@ -72,19 +80,35 @@ export class PixiRendererService {
 
     const cellSize = this.config.chunk.cellSize;
 
-    const waterGraphics = new PIXI.Graphics();
-    waterGraphics.rect(0, 0, cellSize, cellSize).fill(0x3498db);
-    this.waterTexture = this.app.renderer.generateTexture(waterGraphics);
+    const { ExtendedTerrainType } = await import('../types/world');
 
-    const landGraphics = new PIXI.Graphics();
-    landGraphics.rect(0, 0, cellSize, cellSize).fill(0x27ae60);
-    this.landTexture = this.app.renderer.generateTexture(landGraphics);
+    const terrainTypes = Object.values(ExtendedTerrainType);
+
+    for (const terrainType of terrainTypes) {
+      const color = getTerrainPixiColor(terrainType);
+      const graphics = new PIXI.Graphics();
+      graphics.rect(0, 0, cellSize, cellSize).fill(color);
+
+      const texture = this.app.renderer.generateTexture(graphics);
+      this.terrainTextures.set(terrainType, texture);
+
+      const darkenedColor = getTerrainPixiColorDarkened(terrainType);
+      const darkenedGraphics = new PIXI.Graphics();
+      darkenedGraphics.rect(0, 0, cellSize, cellSize).fill(darkenedColor);
+
+      const darkenedTexture = this.app.renderer.generateTexture(darkenedGraphics);
+      this.terrainTexturesDarkened.set(terrainType, darkenedTexture);
+    }
 
     const unknownGraphics = new PIXI.Graphics();
     unknownGraphics.rect(0, 0, cellSize, cellSize).fill(0x95a5a6);
     this.unknownTexture = this.app.renderer.generateTexture(unknownGraphics);
 
-    this.logger.debug('Textures created successfully', 'createTextures');
+    this.logger.debug('All terrain textures created successfully', 'createTextures', {
+      terrainTypesCount: terrainTypes.length,
+      terrainTypes: terrainTypes,
+      darkenedTexturesCount: this.terrainTexturesDarkened.size,
+    });
   }
 
   private createResourceTexture(color: number): PIXI.Texture {
@@ -140,7 +164,7 @@ export class PixiRendererService {
       return;
     }
 
-    if (!this.waterTexture || !this.landTexture || !this.unknownTexture) {
+    if (!this.terrainTextures.size || !this.unknownTexture) {
       this.logger.warn('Cannot add chunk - textures not created', 'addChunk');
       return;
     }
@@ -196,8 +220,10 @@ export class PixiRendererService {
     let spriteIndex = 0;
     for (let row = 0; row < this.config.chunk.size; row++) {
       for (let col = 0; col < this.config.chunk.size; col++) {
-        const cellValue = terrain.cells[row]?.[col];
-        const texture = this.getTextureForCell(cellValue);
+        const terrainType = terrain.cells[row]?.[col];
+
+        const hasDifferentNeighbors = this.hasDifferentNeighbors(terrain, row, col);
+        const texture = this.getTextureForCellWithBlending(terrainType, hasDifferentNeighbors);
 
         if (texture && existingChunk.sprites[spriteIndex]) {
           existingChunk.sprites[spriteIndex]!.texture = texture;
@@ -213,7 +239,7 @@ export class PixiRendererService {
 
     for (const resource of resources) {
       const terrainValue = terrain.cells[resource.location.cellY]?.[resource.location.cellX];
-      if (terrainValue === 1) {
+      if (terrainValue && terrainValue !== 'OCEAN') {
         const color = getResourceColor(resource.type);
         const texture = this.createResourceTexture(color);
 
@@ -287,26 +313,42 @@ export class PixiRendererService {
     const chunkWorldY = coordinate.chunkY * this.config.chunk.size * this.config.chunk.cellSize;
     container.position.set(chunkWorldX, chunkWorldY);
 
-    // Create terrain sprites
+    this.logger.debug('Creating chunk with terrain data', 'createChunk', {
+      chunkKey: `${coordinate.chunkX},${coordinate.chunkY}`,
+      terrainSample: terrain.cells[0]?.slice(0, 3),
+      terrainDataType: typeof terrain.cells[0]?.[0],
+    });
+
     for (let row = 0; row < this.config.chunk.size; row++) {
       if (!terrain.cells[row]) continue;
 
       for (let col = 0; col < this.config.chunk.size; col++) {
-        const cellValue = terrain.cells[row]?.[col];
-        const texture = this.getTextureForCell(cellValue);
+        const terrainType = terrain.cells[row]?.[col];
+
+        // Check if this cell has different neighbors for terrain blending
+        const hasDifferentNeighbors = this.hasDifferentNeighbors(terrain, row, col);
+        const texture = this.getTextureForCellWithBlending(terrainType, hasDifferentNeighbors);
 
         if (texture) {
           const sprite = new PIXI.Sprite(texture);
           sprite.position.set(col * this.config.chunk.cellSize, row * this.config.chunk.cellSize);
           container.addChild(sprite);
           sprites.push(sprite);
+        } else {
+          // Log when no texture is found
+          this.logger.warn('No texture found for terrain type', 'createChunk', {
+            terrainType,
+            row,
+            col,
+            typeofTerrain: typeof terrainType,
+          });
         }
       }
     }
 
     for (const resource of resources) {
       const terrainValue = terrain.cells[resource.location.cellY]?.[resource.location.cellX];
-      if (terrainValue === 1) {
+      if (terrainValue && terrainValue !== 'OCEAN') {
         const color = getResourceColor(resource.type);
         const texture = this.createResourceTexture(color);
 
@@ -326,15 +368,65 @@ export class PixiRendererService {
     return { container, sprites, resourceSprites };
   }
 
-  private getTextureForCell(cellValue: number | undefined): PIXI.Texture | null {
-    switch (cellValue) {
-      case 0:
-        return this.waterTexture;
-      case 1:
-        return this.landTexture;
-      default:
-        return this.unknownTexture;
+  private getTextureForCell(terrainType: ExtendedTerrainType | undefined): PIXI.Texture | null {
+    if (!terrainType) {
+      return this.unknownTexture;
     }
+
+    const texture = this.terrainTextures.get(terrainType);
+    return texture || this.unknownTexture;
+  }
+
+  private getTextureForCellWithBlending(
+    terrainType: ExtendedTerrainType | undefined,
+    hasDifferentNeighbors: boolean,
+  ): PIXI.Texture | null {
+    if (!terrainType) {
+      return this.unknownTexture;
+    }
+
+    if (hasDifferentNeighbors) {
+      const darkenedTexture = this.terrainTexturesDarkened.get(terrainType);
+      if (darkenedTexture) {
+        return darkenedTexture;
+      }
+    }
+
+    const texture = this.terrainTextures.get(terrainType);
+    return texture || this.unknownTexture;
+  }
+
+  private hasDifferentNeighbors(terrain: TerrainGrid, row: number, col: number): boolean {
+    const currentTerrain = terrain.cells[row]?.[col];
+    if (!currentTerrain) return false;
+
+    const chunkSize = this.config.chunk.size;
+
+    const neighbors = [
+      { row: row - 1, col }, // North
+      { row: row + 1, col }, // South
+      { row, col: col - 1 }, // West
+      { row, col: col + 1 }, // East
+    ];
+
+    for (const neighbor of neighbors) {
+      if (
+        neighbor.row < 0 ||
+        neighbor.row >= chunkSize ||
+        neighbor.col < 0 ||
+        neighbor.col >= chunkSize
+      ) {
+        continue;
+      }
+
+      const neighborTerrain = terrain.cells[neighbor.row]?.[neighbor.col];
+
+      if (neighborTerrain && neighborTerrain !== currentTerrain) {
+        return true;
+      }
+    }
+
+    return false;
   }
 
   destroy(): void {
@@ -358,11 +450,12 @@ export class PixiRendererService {
     }
 
     this.chunks.clear();
+    this.terrainTextures.clear();
+    this.terrainTexturesDarkened.clear();
+    this.resourceTextures.clear();
     this.worldContainer = null;
     this.chunkLayer = null;
     this.container = null;
-    this.waterTexture = null;
-    this.landTexture = null;
     this.unknownTexture = null;
 
     this.logger.info('PixiJS renderer destroyed successfully', 'destroy');
