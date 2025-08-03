@@ -1,19 +1,16 @@
 import { createNoise2D } from 'simplex-noise';
 import { v4 as uuidv4 } from 'uuid';
 import { RESOURCE_CONFIGS } from '~/config/resources.config';
+import { generateTerrainType, getTerrainNoiseValues } from '~~/server/utils/terrain-generator';
 import type {
   ResourceVein,
   ResourceType,
   ResourceGrade,
-  FormationType,
-  ScanLevel,
-  ExtendedTerrainType,
   ClimateType,
   EnvironmentalHazard,
 } from '~/types/world';
 import {
   ResourceGrade as ResourceGradeEnum,
-  ExtendedTerrainType as ExtendedTerrainTypeEnum,
   ClimateType as ClimateTypeEnum,
   EnvironmentalHazard as EnvironmentalHazardEnum,
   ScanLevel as ScanLevelEnum,
@@ -226,7 +223,7 @@ function generateResourceVein(
     config.preferredFormations[Math.floor(Math.random() * config.preferredFormations.length)];
 
   // Generate environmental properties
-  const terrain = generateTerrain(worldX, worldY);
+  const terrain = generateTerrainType(worldX, worldY);
   const climate = generateClimate(worldX, worldY);
   const hazards = generateHazards(resourceType, depth);
 
@@ -295,48 +292,18 @@ function generateResourceVein(
 }
 
 /**
- * Generate terrain type based on world coordinates
- */
-function generateTerrain(worldX: number, worldY: number): ExtendedTerrainType {
-  const terrainNoise = resourceDensityNoise(worldX * 0.02, worldY * 0.02);
-  const moistureNoise = resourceTypeNoise(worldX * 0.015, worldY * 0.015);
-  const temperatureNoise = richnessnoise(worldX * 0.01, worldY * 0.01);
-
-  if (terrainNoise < -0.5) return ExtendedTerrainTypeEnum.OCEAN;
-
-  if (terrainNoise < -0.2) {
-    if (moistureNoise > 0.3) return ExtendedTerrainTypeEnum.SWAMP;
-    return ExtendedTerrainTypeEnum.PLAINS;
-  }
-
-  if (terrainNoise < 0.1) {
-    if (moistureNoise > 0.2) return ExtendedTerrainTypeEnum.FOREST;
-    return ExtendedTerrainTypeEnum.HILLS;
-  }
-
-  if (terrainNoise < 0.4) {
-    if (temperatureNoise < -0.3) return ExtendedTerrainTypeEnum.TUNDRA;
-    return ExtendedTerrainTypeEnum.MOUNTAINS;
-  }
-
-  if (moistureNoise < -0.2 || temperatureNoise > 0.4) {
-    return ExtendedTerrainTypeEnum.DESERT;
-  }
-
-  return ExtendedTerrainTypeEnum.FOREST;
-}
-
-/**
  * Generate climate type based on world coordinates
  */
 function generateClimate(worldX: number, worldY: number): ClimateType {
-  // Simple climate generation based on latitude-like coordinate
-  const latitudelike = Math.abs(worldY % 1000) / 1000;
+  const noiseValues = getTerrainNoiseValues(worldX, worldY);
 
-  if (latitudelike < 0.2) return ClimateTypeEnum.ARCTIC;
+  const latitudelike = Math.abs(worldY % 1000) / 1000;
+  const temperatureModifier = noiseValues.temperature;
+
+  if (latitudelike < 0.2 || temperatureModifier < -0.3) return ClimateTypeEnum.ARCTIC;
   if (latitudelike < 0.4) return ClimateTypeEnum.TEMPERATE;
-  if (latitudelike < 0.6) return ClimateTypeEnum.TROPICAL;
-  if (latitudelike < 0.8) return ClimateTypeEnum.ARID;
+  if (latitudelike < 0.6 && temperatureModifier > 0.1) return ClimateTypeEnum.TROPICAL;
+  if (latitudelike < 0.8 || noiseValues.moisture < -0.2) return ClimateTypeEnum.ARID;
   return ClimateTypeEnum.ALPINE;
 }
 

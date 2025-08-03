@@ -1,6 +1,7 @@
 import type { ResourceVein } from '~/types/world';
 import { getCachedChunk, setCachedChunk } from '~~/server/utils/redis';
 import { generateChunkResources } from '~~/server/utils/resource-generator';
+import { generateChunkTerrainLegacy } from '~~/server/utils/terrain-generator';
 
 interface WebSocketPeer {
   id: string;
@@ -274,34 +275,13 @@ async function generateChunk(
     return cachedChunk as { terrain: number[][]; resources: ResourceVein[] };
   }
 
-  const { createNoise2D } = await import('simplex-noise');
+  const terrainData = generateChunkTerrainLegacy(chunkX, chunkY, 16);
 
-  const noise2D = createNoise2D();
-  const chunkSize = 16;
-  const noiseScale = 0.1;
-  const chunkData: number[][] = [];
+  const resources = generateChunkResources(chunkX, chunkY, 16);
 
-  for (let row = 0; row < chunkSize; row++) {
-    const rowData: number[] = [];
+  const chunkResult = { terrain: terrainData, resources };
 
-    for (let col = 0; col < chunkSize; col++) {
-      const worldX = chunkX * chunkSize + col;
-      const worldY = chunkY * chunkSize + row;
-
-      const noiseValue = noise2D(worldX * noiseScale, worldY * noiseScale);
-      const terrainType = noiseValue < 0 ? 0 : 1;
-
-      rowData.push(terrainType);
-    }
-
-    chunkData.push(rowData);
-  }
-
-  const resources = generateChunkResources(chunkX, chunkY, chunkSize);
-
-  const chunkResult = { terrain: chunkData, resources };
-
-  await setCachedChunk(chunkX, chunkY, chunkData);
+  await setCachedChunk(chunkX, chunkY, terrainData);
 
   return chunkResult;
 }
