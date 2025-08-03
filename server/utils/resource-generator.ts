@@ -298,15 +298,32 @@ function generateResourceVein(
  * Generate terrain type based on world coordinates
  */
 function generateTerrain(worldX: number, worldY: number): ExtendedTerrainType {
-  // Simple terrain generation - can be enhanced later
   const terrainNoise = resourceDensityNoise(worldX * 0.02, worldY * 0.02);
+  const moistureNoise = resourceTypeNoise(worldX * 0.015, worldY * 0.015);
+  const temperatureNoise = richnessnoise(worldX * 0.01, worldY * 0.01);
 
-  if (terrainNoise < -0.5) return ExtendedTerrainTypeEnum.WATER;
-  if (terrainNoise < -0.2) return ExtendedTerrainTypeEnum.PLAINS;
-  if (terrainNoise < 0.1) return ExtendedTerrainTypeEnum.HILLS;
-  if (terrainNoise < 0.4) return ExtendedTerrainTypeEnum.MOUNTAINS;
-  if (terrainNoise < 0.6) return ExtendedTerrainTypeEnum.FOREST;
-  return ExtendedTerrainTypeEnum.DESERT;
+  if (terrainNoise < -0.5) return ExtendedTerrainTypeEnum.OCEAN;
+
+  if (terrainNoise < -0.2) {
+    if (moistureNoise > 0.3) return ExtendedTerrainTypeEnum.SWAMP;
+    return ExtendedTerrainTypeEnum.PLAINS;
+  }
+
+  if (terrainNoise < 0.1) {
+    if (moistureNoise > 0.2) return ExtendedTerrainTypeEnum.FOREST;
+    return ExtendedTerrainTypeEnum.HILLS;
+  }
+
+  if (terrainNoise < 0.4) {
+    if (temperatureNoise < -0.3) return ExtendedTerrainTypeEnum.TUNDRA;
+    return ExtendedTerrainTypeEnum.MOUNTAINS;
+  }
+
+  if (moistureNoise < -0.2 || temperatureNoise > 0.4) {
+    return ExtendedTerrainTypeEnum.DESERT;
+  }
+
+  return ExtendedTerrainTypeEnum.FOREST;
 }
 
 /**

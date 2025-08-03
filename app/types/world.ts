@@ -22,15 +22,21 @@ export interface ChunkCoordinate {
 
 export interface ChunkData {
   coordinate: ChunkCoordinate;
-  data: number[][];
+  terrain: ExtendedTerrainType[][];
+  elevationData?: number[][];
+  climateData?: ClimateType[][];
   size: number;
   timestamp?: string;
   resources: ResourceVein[];
+  metadata?: {
+    version: string;
+    generationMethod: string;
+    seed: number;
+  };
 }
 
-export type TerrainType = 0 | 1; // 0 = water, 1 = land
 export interface TerrainGrid {
-  cells: TerrainType[][];
+  cells: ExtendedTerrainType[][];
 }
 
 export interface WorldConfig {
@@ -64,12 +70,19 @@ export interface ChunkDataMessage extends WebSocketMessage {
   chunkX: number;
   chunkY: number;
   data: TerrainGrid;
+  elevationData?: number[][];
+  climateData?: ClimateType[][];
   resources?: ResourceVein[];
   priority?: 'viewport' | 'low';
   progress?: {
     current: number;
     total: number;
     phase?: 'viewport' | 'prefetch';
+  };
+  metadata?: {
+    version: string;
+    generationTime: number;
+    compressionUsed?: boolean;
   };
 }
 
@@ -240,7 +253,7 @@ export enum ClimateType {
 }
 
 export enum ExtendedTerrainType {
-  WATER = 'WATER',
+  OCEAN = 'OCEAN',
   PLAINS = 'PLAINS',
   HILLS = 'HILLS',
   MOUNTAINS = 'MOUNTAINS',
@@ -248,6 +261,47 @@ export enum ExtendedTerrainType {
   FOREST = 'FOREST',
   SWAMP = 'SWAMP',
   TUNDRA = 'TUNDRA',
+}
+export interface TerrainProperties {
+  type: ExtendedTerrainType;
+  baseColor: number;
+  elevation: {
+    min: number;
+    max: number;
+    variance: number;
+  };
+  traversal: {
+    difficulty: number;
+    speedModifier: number;
+  };
+  visual: {
+    texture?: string;
+    pattern?: string;
+    opacity: number;
+    animated?: boolean;
+  };
+  climate: {
+    preferredClimates: ClimateType[];
+    temperatureModifier: number;
+    humidityModifier: number;
+  };
+  resources: {
+    preferredResources: ResourceType[];
+    resourceDensityModifier: number;
+    accessibilityModifier: number;
+  };
+}
+
+export interface TerrainCell {
+  type: ExtendedTerrainType;
+  elevation?: number;
+  moisture?: number;
+  temperature?: number;
+  metadata?: {
+    generated: string;
+    seed: number;
+    noise: number;
+  };
 }
 
 export enum ProcessingStep {
