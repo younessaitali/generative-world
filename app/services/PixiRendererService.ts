@@ -1,4 +1,4 @@
-import * as PIXI from 'pixi.js';
+import { Application, Container, Sprite, Graphics, type Texture } from 'pixi.js';
 import type {
   ChunkCoordinate,
   TerrainGrid,
@@ -12,22 +12,22 @@ import { getResourceColor } from '~/utils/resource-colors';
 import { getTerrainPixiColor, getTerrainPixiColorDarkened } from '~/utils/terrain-colors';
 
 interface PixiChunk {
-  container: PIXI.Container;
-  sprites: PIXI.Sprite[];
-  resourceSprites: PIXI.Sprite[];
+  container: Container;
+  sprites: Sprite[];
+  resourceSprites: Sprite[];
 }
 
 export class PixiRendererService {
-  private app: PIXI.Application | null = null;
+  private app: Application | null = null;
   private chunks = new Map<string, PixiChunk>();
-  private chunkLayer: PIXI.Container | null = null;
-  private worldContainer: PIXI.Container | null = null;
+  private chunkLayer: Container | null = null;
+  private worldContainer: Container | null = null;
   private container: HTMLElement | null = null;
 
-  private terrainTextures = new Map<ExtendedTerrainType, PIXI.Texture>();
-  private terrainTexturesDarkened = new Map<ExtendedTerrainType, PIXI.Texture>();
-  private unknownTexture: PIXI.Texture | null = null;
-  private resourceTextures = new Map<number, PIXI.Texture>();
+  private terrainTextures = new Map<ExtendedTerrainType, Texture>();
+  private terrainTexturesDarkened = new Map<ExtendedTerrainType, Texture>();
+  private unknownTexture: Texture | null = null;
+  private resourceTextures = new Map<number, Texture>();
   private config: WorldConfig;
   private logger = createServiceLogger('PixiRendererService');
   private stats: RendererStats = {
@@ -46,7 +46,7 @@ export class PixiRendererService {
     this.container = container;
 
     try {
-      this.app = new PIXI.Application();
+      this.app = new Application();
       await this.app.init({
         width: container.clientWidth,
         height: container.clientHeight,
@@ -60,10 +60,10 @@ export class PixiRendererService {
 
       container.appendChild(this.app.canvas);
 
-      this.worldContainer = new PIXI.Container();
+      this.worldContainer = new Container();
       this.app.stage.addChild(this.worldContainer);
 
-      this.chunkLayer = new PIXI.Container();
+      this.chunkLayer = new Container();
       this.worldContainer.addChild(this.chunkLayer);
 
       await this.createTextures();
@@ -86,21 +86,21 @@ export class PixiRendererService {
 
     for (const terrainType of terrainTypes) {
       const color = getTerrainPixiColor(terrainType);
-      const graphics = new PIXI.Graphics();
+      const graphics = new Graphics();
       graphics.rect(0, 0, cellSize, cellSize).fill(color);
 
       const texture = this.app.renderer.generateTexture(graphics);
       this.terrainTextures.set(terrainType, texture);
 
       const darkenedColor = getTerrainPixiColorDarkened(terrainType);
-      const darkenedGraphics = new PIXI.Graphics();
+      const darkenedGraphics = new Graphics();
       darkenedGraphics.rect(0, 0, cellSize, cellSize).fill(darkenedColor);
 
       const darkenedTexture = this.app.renderer.generateTexture(darkenedGraphics);
       this.terrainTexturesDarkened.set(terrainType, darkenedTexture);
     }
 
-    const unknownGraphics = new PIXI.Graphics();
+    const unknownGraphics = new Graphics();
     unknownGraphics.rect(0, 0, cellSize, cellSize).fill(0x95a5a6);
     this.unknownTexture = this.app.renderer.generateTexture(unknownGraphics);
 
@@ -111,7 +111,7 @@ export class PixiRendererService {
     });
   }
 
-  private createResourceTexture(color: number): PIXI.Texture {
+  private createResourceTexture(color: number): Texture {
     if (!this.app) throw new Error('PixiJS app not initialized');
 
     if (this.resourceTextures.has(color)) {
@@ -122,7 +122,7 @@ export class PixiRendererService {
     const resourceSize = Math.max(4, cellSize * 0.4);
     const offset = (cellSize - resourceSize) / 2;
 
-    const graphics = new PIXI.Graphics();
+    const graphics = new Graphics();
     graphics.circle(offset + resourceSize / 2, offset + resourceSize / 2, resourceSize / 2);
     graphics.fill(color);
 
@@ -243,7 +243,7 @@ export class PixiRendererService {
         const color = getResourceColor(resource.type);
         const texture = this.createResourceTexture(color);
 
-        const resourceSprite = new PIXI.Sprite(texture);
+        const resourceSprite = new Sprite(texture);
         resourceSprite.position.set(
           resource.location.cellX * this.config.chunk.cellSize,
           resource.location.cellY * this.config.chunk.cellSize,
@@ -305,9 +305,9 @@ export class PixiRendererService {
     terrain: TerrainGrid,
     resources: ResourceVein[] = [],
   ): PixiChunk {
-    const container = new PIXI.Container();
-    const sprites: PIXI.Sprite[] = [];
-    const resourceSprites: PIXI.Sprite[] = [];
+    const container = new Container();
+    const sprites: Sprite[] = [];
+    const resourceSprites: Sprite[] = [];
 
     const chunkWorldX = coordinate.chunkX * this.config.chunk.size * this.config.chunk.cellSize;
     const chunkWorldY = coordinate.chunkY * this.config.chunk.size * this.config.chunk.cellSize;
@@ -330,7 +330,7 @@ export class PixiRendererService {
         const texture = this.getTextureForCellWithBlending(terrainType, hasDifferentNeighbors);
 
         if (texture) {
-          const sprite = new PIXI.Sprite(texture);
+          const sprite = new Sprite(texture);
           sprite.position.set(col * this.config.chunk.cellSize, row * this.config.chunk.cellSize);
           container.addChild(sprite);
           sprites.push(sprite);
@@ -352,7 +352,7 @@ export class PixiRendererService {
         const color = getResourceColor(resource.type);
         const texture = this.createResourceTexture(color);
 
-        const resourceSprite = new PIXI.Sprite(texture);
+        const resourceSprite = new Sprite(texture);
         resourceSprite.position.set(
           resource.location.cellX * this.config.chunk.cellSize,
           resource.location.cellY * this.config.chunk.cellSize,
@@ -368,7 +368,7 @@ export class PixiRendererService {
     return { container, sprites, resourceSprites };
   }
 
-  private getTextureForCell(terrainType: ExtendedTerrainType | undefined): PIXI.Texture | null {
+  private getTextureForCell(terrainType: ExtendedTerrainType | undefined): Texture | null {
     if (!terrainType) {
       return this.unknownTexture;
     }
@@ -380,7 +380,7 @@ export class PixiRendererService {
   private getTextureForCellWithBlending(
     terrainType: ExtendedTerrainType | undefined,
     hasDifferentNeighbors: boolean,
-  ): PIXI.Texture | null {
+  ): Texture | null {
     if (!terrainType) {
       return this.unknownTexture;
     }

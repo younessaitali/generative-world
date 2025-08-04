@@ -35,7 +35,7 @@ export function useWorldInteraction(
     event.preventDefault();
   };
 
-  const handleMouseMove = (event: MouseEvent) => {
+  const throttledHandleMouseMove = useThrottleFn((event: MouseEvent) => {
     if (!isDragging.value || !enablePanning) return;
 
     const deltaX = event.clientX - lastMousePosition.value.x;
@@ -48,13 +48,17 @@ export function useWorldInteraction(
     });
 
     lastMousePosition.value = { x: event.clientX, y: event.clientY };
+  }, 16);
+
+  const handleMouseMove = (event: MouseEvent) => {
+    throttledHandleMouseMove(event);
   };
 
   const handleMouseUp = () => {
     isDragging.value = false;
   };
 
-  const handleWheel = (event: WheelEvent) => {
+  const throttledHandleWheel = useThrottleFn((event: WheelEvent) => {
     if (!enableZooming || !element.value) return;
 
     event.preventDefault();
@@ -70,6 +74,10 @@ export function useWorldInteraction(
       mouseX,
       mouseY,
     });
+  }, 16);
+
+  const handleWheel = (event: WheelEvent) => {
+    throttledHandleWheel(event);
   };
 
   const handleTouchStart = (event: TouchEvent) => {
