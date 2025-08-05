@@ -8,6 +8,7 @@ import {
   jsonb,
   index,
   pgEnum,
+  unique,
 } from 'drizzle-orm/pg-core';
 import { relations } from 'drizzle-orm';
 import { createInsertSchema, createSelectSchema } from 'drizzle-zod';
@@ -108,6 +109,46 @@ export const worldEvents = pgTable(
   ],
 );
 
+export const extractors = pgTable(
+  'extractors',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    playerId: uuid('player_id')
+      .notNull()
+      .references(() => players.id, { onDelete: 'cascade' }),
+    worldId: uuid('world_id')
+      .notNull()
+      .references(() => worlds.id, { onDelete: 'cascade' }),
+    x: real('x').notNull(),
+    y: real('y').notNull(),
+    resourceType: text('resource_type').notNull(),
+    status: text('status').notNull().default('IDLE'),
+    efficiency: real('efficiency').notNull().default(1.0),
+    lastTick: timestamp('last_tick').notNull().defaultNow(),
+    storage: jsonb('storage').notNull().default('{}'),
+    createdAt: timestamp('created_at').notNull().defaultNow(),
+    updatedAt: timestamp('updated_at').notNull().defaultNow(),
+  },
+  (table) => [
+    index('extractors_player_id_idx').on(table.playerId),
+    index('extractors_world_id_idx').on(table.worldId),
+    index('extractors_resource_type_idx').on(table.resourceType),
+    index('extractors_location_idx').on(table.x, table.y),
+    unique().on(table.x, table.y, table.worldId),
+  ],
+);
+
+export const extractorsRelations = relations(extractors, ({ one }) => ({
+  player: one(players, {
+    fields: [extractors.playerId],
+    references: [players.id],
+  }),
+  world: one(worlds, {
+    fields: [extractors.worldId],
+    references: [worlds.id],
+  }),
+}));
+
 export const worldsRelations = relations(worlds, ({ many }) => ({
   players: many(players),
 }));
@@ -171,6 +212,20 @@ export const insertWorldEventSchema = createInsertSchema(worldEvents, {
 
 export const selectWorldEventSchema = createSelectSchema(worldEvents);
 
+export const insertExtractorSchema = createInsertSchema(extractors, {
+  playerId: z.string().uuid(),
+  worldId: z.string().uuid(),
+  x: z.number(),
+  y: z.number(),
+  resourceType: z.string(),
+  status: z.string().default('IDLE'),
+  efficiency: z.number().default(1.0),
+  lastTick: z.date().default(new Date()),
+  storage: z.record(z.string(), z.any()).default({}),
+});
+
+export const selectExtractorSchema = createSelectSchema(extractors);
+
 // Export types
 export type World = z.infer<typeof selectWorldSchema>;
 export type NewWorld = z.infer<typeof insertWorldSchema>;
@@ -182,3 +237,6 @@ export type PlayerScan = z.infer<typeof selectPlayerScanSchema>;
 export type NewPlayerScan = z.infer<typeof insertPlayerScanSchema>;
 export type WorldEvent = z.infer<typeof selectWorldEventSchema>;
 export type NewWorldEvent = z.infer<typeof insertWorldEventSchema>;
+
+export type Extractor = z.infer<typeof selectExtractorSchema>;
+export type NewExtractor = z.infer<typeof insertExtractorSchema>;
