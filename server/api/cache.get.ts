@@ -1,46 +1,37 @@
-import { getRedisClient } from '~~/server/utils/redis';
+import { getCacheService } from '../services/CacheService';
 
 export default defineEventHandler(async (event) => {
   const url = getRequestURL(event);
   const action = url.searchParams.get('action');
 
   try {
-    const client = await getRedisClient();
+    const cacheService = getCacheService();
 
     switch (action) {
       case 'stats': {
-        if (!client) {
+        if (!cacheService.isAvailable()) {
           return { error: 'Redis not available' };
         }
 
-        const keys = await client.keys('chunk:*');
-        const info = await client.info('memory');
+        const stats = await cacheService.getCacheStats();
 
         return {
           success: true,
-          cachedChunks: keys.length,
-          chunkKeys: keys.slice(0, 10), // Show first 10 keys
-          redisMemoryInfo: info
-            .split('\n')
-            .filter(
-              (line) => line.includes('used_memory_human') || line.includes('used_memory_dataset'),
-            ),
+          cachedChunks: stats.keyCount,
+          stats,
         };
       }
 
       case 'clear': {
-        if (!client) {
+        if (!cacheService.isAvailable()) {
           return { error: 'Redis not available' };
         }
 
-        const keys = await client.keys('chunk:*');
-        if (keys.length > 0) {
-          await client.del(keys);
-        }
+        await cacheService.clearWorld('default');
 
         return {
           success: true,
-          message: `Cleared ${keys.length} cached chunks`,
+          message: 'Cleared cached chunks for default world',
         };
       }
 

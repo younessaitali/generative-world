@@ -1,7 +1,5 @@
 import type { ResourceVein, ExtendedTerrainType } from '#shared/types/world';
-import { getCachedChunk, setCachedChunk } from '~~/server/utils/redis';
-import { generateChunkResources } from '~~/server/utils/resource-generator';
-import { generateChunkTerrain } from '~~/server/utils/terrain-generator';
+import { generateOrLoadChunk } from '~~/server/utils/resource-generator';
 
 interface WebSocketPeer {
   id: string;
@@ -264,26 +262,11 @@ async function generateChunk(
   chunkX: number,
   chunkY: number,
 ): Promise<{ terrain: ExtendedTerrainType[][]; resources: ResourceVein[] }> {
-  const cachedChunk = await getCachedChunk(chunkX, chunkY);
-  if (cachedChunk) {
-    // Handle legacy cache format (just terrain data)
-    if (Array.isArray(cachedChunk)) {
-      // For legacy numeric terrain data, convert to string-based terrain
-      // This is temporary for cached data compatibility
-      const resources = generateChunkResources(chunkX, chunkY, 16);
-      const stringTerrain = generateChunkTerrain(chunkX, chunkY, 16);
-      return { terrain: stringTerrain, resources };
-    }
-    return cachedChunk as { terrain: ExtendedTerrainType[][]; resources: ResourceVein[] };
-  }
+  const worldId = 'default'; // For now, use default world until multi-world support is implemented
 
-  const terrainData = generateChunkTerrain(chunkX, chunkY, 16);
-
-  const resources = generateChunkResources(chunkX, chunkY, 16);
-
-  const chunkResult = { terrain: terrainData, resources };
-
-  await setCachedChunk(chunkX, chunkY, terrainData);
-
-  return chunkResult;
+  const chunkData = await generateOrLoadChunk(chunkX, chunkY, 16, worldId);
+  return {
+    terrain: chunkData.terrain,
+    resources: chunkData.resources,
+  };
 }

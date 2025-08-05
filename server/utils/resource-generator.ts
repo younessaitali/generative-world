@@ -1,13 +1,21 @@
 import { createNoise2D } from 'simplex-noise';
 import { v4 as uuidv4 } from 'uuid';
 import { RESOURCE_CONFIGS } from '~/config/resources.config';
-import { generateTerrainType, getTerrainNoiseValues } from '~~/server/utils/terrain-generator';
+import {
+  generateTerrainType,
+  getTerrainNoiseValues,
+  generateChunkTerrain,
+} from '~~/server/utils/terrain-generator';
+import { getCacheService } from '~~/server/services/CacheService';
+import { getStorageService } from '~~/server/services/StorageService';
 import type {
   ResourceVein,
   ResourceType,
   ResourceGrade,
   ClimateType,
   EnvironmentalHazard,
+  ChunkData,
+  ExtendedTerrainType,
 } from '#shared/types/world';
 import {
   ResourceGrade as ResourceGradeEnum,
@@ -334,4 +342,101 @@ function generateHazards(resourceType: ResourceType, depth: number): Environment
   }
 
   return hazards;
+}
+
+/**
+ * Orchestrate the new persistence flow: Cache -> Storage -> Generate
+ *
+ * This function implements the new multi-tiered architecture:
+ * 1. Request chunk from CacheService (Redis). If found, return it.
+ * 2. If not in cache, request chunk from StorageService (MinIO). If found, return it AND asynchronously add it to the Redis cache.
+ * 3. If not in storage, generate the chunk procedurally.
+ * 4. Asynchronously save the newly generated chunk to BOTH the StorageService (for persistence) and the CacheService (for subsequent requests).
+ */
+export async function generateOrLoadChunk(
+  chunkX: number,
+  chunkY: number,
+  chunkSize: number = 16,
+  worldId: string = 'default',
+): Promise<ChunkData> {
+  const cacheService = getCacheService();
+  const storageService = getStorageService();
+
+  try {
+    // Step 1: Check Redis cache first
+    const cachedChunk = await cacheService.getChunk(worldId, chunkX, chunkY);
+
+    if (cachedChunk) {
+      return cachedChunk;
+    }
+
+    // Step 2: Check MinIO storage if not in cache
+    const storedChunk = await storageService.getChunk(worldId, chunkX, chunkY);
+
+    if (storedChunk) {
+      // Asynchronously cache the chunk in Redis for future requests
+      setImmediate(async () => {
+        try {
+          await cacheService.setChunk(worldId, chunkX, chunkY, storedChunk);
+        } catch (error) {
+          console.error(`❌ [CACHE WRITE ERROR] Failed to cache chunk (${chunkX}, ${chunkY}):`, error);
+        }
+      });
+
+      return storedChunk;
+    }
+
+    // Step 3: Generate chunk procedurally if not found anywhere
+    const terrain = generateChunkTerrain(chunkX, chunkY, chunkSize);
+    const resources = generateChunkResources(chunkX, chunkY, chunkSize);
+
+    const chunkData: ChunkData = {
+      coordinate: { chunkX, chunkY },
+      terrain,
+      resources,
+      size: chunkSize,
+      timestamp: new Date().toISOString(),
+      metadata: {
+        version: '3.0.0',
+        generationMethod: 'multi_layer_noise',
+        seed: Math.floor(chunkX * 1000 + chunkY),
+      },
+    };
+
+
+    // Step 4: Asynchronously save to both storage and cache
+    setImmediate(async () => {
+      try {
+        // Save to MinIO storage for persistence
+        await storageService.saveChunk(worldId, chunkX, chunkY, chunkData);
+
+        // Save to Redis cache for subsequent requests
+        await cacheService.setChunk(worldId, chunkX, chunkY, chunkData);
+      } catch (error) {
+        console.error(`❌ [PERSISTENCE ERROR] Failed to save chunk (${chunkX}, ${chunkY}):`, error);
+      }
+    });
+
+    return chunkData;
+  } catch (error) {
+    // Fallback to generation-only if entire persistence layer fails
+    console.error(`❌ [PERSISTENCE ERROR] Full persistence failure for chunk (${chunkX}, ${chunkY}):`, error);
+    console.log(`🔄 [FALLBACK] Falling back to generation-only mode for chunk (${chunkX}, ${chunkY})`);
+
+    const terrain = generateChunkTerrain(chunkX, chunkY, chunkSize);
+    const resources = generateChunkResources(chunkX, chunkY, chunkSize);
+
+    return {
+      coordinate: { chunkX, chunkY },
+      terrain,
+      resources,
+      size: chunkSize,
+      timestamp: new Date().toISOString(),
+      metadata: {
+        version: '3.0.0',
+        generationMethod: 'multi_layer_noise_fallback',
+        seed: Math.floor(chunkX * 1000 + chunkY),
+      },
+    };
+  }
 }

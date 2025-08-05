@@ -1,8 +1,11 @@
 import { z } from 'zod/v4';
+import { createError } from 'h3';
 import defineValidatedEventHandler from '~~/server/utils/define-validated-event-handler';
 import { generateChunkResources } from '~~/server/utils/resource-generator';
 import type { ResourceVein, ScanLevel } from '#shared/types/world';
 import { ScanLevel as ScanLevelEnum } from '#shared/types/world';
+import { db } from '~~/server/database/connection';
+import { playerScans } from '~~/server/database/schema';
 
 const scanBodySchema = z.object({
   x: z.number().min(-1000000).max(1000000),
@@ -12,6 +15,7 @@ const scanBodySchema = z.object({
 
 interface ScanResult {
   success: boolean;
+  playerId?: string;
   discovered?: ResourceVein;
   coordinates: {
     worldX: number;
@@ -84,6 +88,7 @@ function findNearbyResource(
  *
  * Scans a specific world coordinate for resource veins.
  * This is the primary discovery action for players.
+ * Requires player authentication via middleware.
  */
 export default defineValidatedEventHandler(
   {
@@ -91,6 +96,16 @@ export default defineValidatedEventHandler(
   },
   async (event): Promise<ScanResult> => {
     const { x: worldX, y: worldY, searchRadius } = event.context.validated.body;
+
+    const player = event.context.player;
+    const playerId = event.context.playerId;
+
+    if (!player || !playerId) {
+      throw createError({
+        statusCode: 401,
+        statusMessage: 'Player authentication required',
+      });
+    }
 
     const chunkSize = 16;
     const chunkX = Math.floor(worldX / chunkSize);
@@ -104,6 +119,7 @@ export default defineValidatedEventHandler(
 
       const scanResult: ScanResult = {
         success: true,
+        playerId,
         coordinates: {
           worldX,
           worldY,
@@ -116,6 +132,24 @@ export default defineValidatedEventHandler(
         timestamp: new Date().toISOString(),
       };
 
+      try {
+        await db.insert(playerScans).values({
+          sessionId: player.sessionId,
+          scanX: worldX,
+          scanY: worldY,
+          scanRadius: searchRadius,
+          scanType: 'resource',
+          results: {
+            success: true,
+            resourceFound: !!resourceVein,
+            resourceType: resourceVein?.type || null,
+            scanLevel: ScanLevelEnum.SURFACE,
+          },
+        });
+      } catch (dbError) {
+        console.warn('Failed to save scan to database:', dbError);
+      }
+
       if (resourceVein) {
         const discoveredVein: ResourceVein = {
           ...resourceVein,
@@ -125,6 +159,7 @@ export default defineValidatedEventHandler(
             discoveredAt: new Date().toISOString(),
             scanLevel: ScanLevelEnum.SURFACE,
             confidence: 0.7,
+            discoveredBy: playerId,
           },
         };
 
@@ -153,6 +188,7 @@ export default defineValidatedEventHandler(
 
       const errorResult: ScanResult = {
         success: false,
+        playerId,
         coordinates: {
           worldX,
           worldY,

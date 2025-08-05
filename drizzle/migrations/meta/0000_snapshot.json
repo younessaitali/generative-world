@@ -1,5 +1,5 @@
 {
-  "id": "94eeb8ec-c3fa-4018-bd38-d47f18eef5c7",
+  "id": "eae5f607-c37e-4c65-8b4e-40f9f96c703d",
   "prevId": "00000000-0000-0000-0000-000000000000",
   "version": "7",
   "dialect": "postgresql",
@@ -18,12 +18,6 @@
         "session_id": {
           "name": "session_id",
           "type": "text",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "chunk_id": {
-          "name": "chunk_id",
-          "type": "uuid",
           "primaryKey": false,
           "notNull": true
         },
@@ -47,7 +41,8 @@
         },
         "scan_type": {
           "name": "scan_type",
-          "type": "text",
+          "type": "scan_type",
+          "typeSchema": "public",
           "primaryKey": false,
           "notNull": true
         },
@@ -66,54 +61,15 @@
         }
       },
       "indexes": {
-        "player_scans_session_idx": {
-          "name": "player_scans_session_idx",
+        "player_scans_session_time_idx": {
+          "name": "player_scans_session_time_idx",
           "columns": [
             {
               "expression": "session_id",
               "isExpression": false,
               "asc": true,
               "nulls": "last"
-            }
-          ],
-          "isUnique": false,
-          "concurrently": false,
-          "method": "btree",
-          "with": {}
-        },
-        "player_scans_chunk_idx": {
-          "name": "player_scans_chunk_idx",
-          "columns": [
-            {
-              "expression": "chunk_id",
-              "isExpression": false,
-              "asc": true,
-              "nulls": "last"
-            }
-          ],
-          "isUnique": false,
-          "concurrently": false,
-          "method": "btree",
-          "with": {}
-        },
-        "player_scans_type_idx": {
-          "name": "player_scans_type_idx",
-          "columns": [
-            {
-              "expression": "scan_type",
-              "isExpression": false,
-              "asc": true,
-              "nulls": "last"
-            }
-          ],
-          "isUnique": false,
-          "concurrently": false,
-          "method": "btree",
-          "with": {}
-        },
-        "player_scans_time_idx": {
-          "name": "player_scans_time_idx",
-          "columns": [
+            },
             {
               "expression": "scanned_at",
               "isExpression": false,
@@ -127,23 +83,150 @@
           "with": {}
         }
       },
+      "foreignKeys": {},
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "policies": {},
+      "checkConstraints": {},
+      "isRLSEnabled": false
+    },
+    "public.players": {
+      "name": "players",
+      "schema": "",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "uuid",
+          "primaryKey": true,
+          "notNull": true,
+          "default": "gen_random_uuid()"
+        },
+        "session_id": {
+          "name": "session_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "world_id": {
+          "name": "world_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "name": {
+          "name": "name",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "inventory": {
+          "name": "inventory",
+          "type": "jsonb",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "'{}'"
+        },
+        "credits": {
+          "name": "credits",
+          "type": "real",
+          "primaryKey": false,
+          "notNull": true,
+          "default": 1000
+        },
+        "last_active": {
+          "name": "last_active",
+          "type": "timestamp",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        },
+        "created_at": {
+          "name": "created_at",
+          "type": "timestamp",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        },
+        "updated_at": {
+          "name": "updated_at",
+          "type": "timestamp",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        }
+      },
+      "indexes": {
+        "players_session_id_idx": {
+          "name": "players_session_id_idx",
+          "columns": [
+            {
+              "expression": "session_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        },
+        "players_last_active_idx": {
+          "name": "players_last_active_idx",
+          "columns": [
+            {
+              "expression": "last_active",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        },
+        "players_world_id_idx": {
+          "name": "players_world_id_idx",
+          "columns": [
+            {
+              "expression": "world_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        }
+      },
       "foreignKeys": {
-        "player_scans_chunk_id_world_chunks_id_fk": {
-          "name": "player_scans_chunk_id_world_chunks_id_fk",
-          "tableFrom": "player_scans",
-          "tableTo": "world_chunks",
+        "players_world_id_worlds_id_fk": {
+          "name": "players_world_id_worlds_id_fk",
+          "tableFrom": "players",
+          "tableTo": "worlds",
           "columnsFrom": [
-            "chunk_id"
+            "world_id"
           ],
           "columnsTo": [
             "id"
           ],
-          "onDelete": "no action",
+          "onDelete": "cascade",
           "onUpdate": "no action"
         }
       },
       "compositePrimaryKeys": {},
-      "uniqueConstraints": {},
+      "uniqueConstraints": {
+        "players_session_id_unique": {
+          "name": "players_session_id_unique",
+          "nullsNotDistinct": false,
+          "columns": [
+            "session_id"
+          ]
+        }
+      },
       "policies": {},
       "checkConstraints": {},
       "isRLSEnabled": false
@@ -158,12 +241,6 @@
           "primaryKey": true,
           "notNull": true,
           "default": "gen_random_uuid()"
-        },
-        "chunk_id": {
-          "name": "chunk_id",
-          "type": "uuid",
-          "primaryKey": false,
-          "notNull": true
         },
         "resource_type": {
           "name": "resource_type",
@@ -236,21 +313,6 @@
         }
       },
       "indexes": {
-        "resource_veins_chunk_id_idx": {
-          "name": "resource_veins_chunk_id_idx",
-          "columns": [
-            {
-              "expression": "chunk_id",
-              "isExpression": false,
-              "asc": true,
-              "nulls": "last"
-            }
-          ],
-          "isUnique": false,
-          "concurrently": false,
-          "method": "btree",
-          "with": {}
-        },
         "resource_veins_type_idx": {
           "name": "resource_veins_type_idx",
           "columns": [
@@ -288,134 +350,6 @@
           "with": {}
         }
       },
-      "foreignKeys": {
-        "resource_veins_chunk_id_world_chunks_id_fk": {
-          "name": "resource_veins_chunk_id_world_chunks_id_fk",
-          "tableFrom": "resource_veins",
-          "tableTo": "world_chunks",
-          "columnsFrom": [
-            "chunk_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
-          "onDelete": "cascade",
-          "onUpdate": "no action"
-        }
-      },
-      "compositePrimaryKeys": {},
-      "uniqueConstraints": {},
-      "policies": {},
-      "checkConstraints": {},
-      "isRLSEnabled": false
-    },
-    "public.world_chunks": {
-      "name": "world_chunks",
-      "schema": "",
-      "columns": {
-        "id": {
-          "name": "id",
-          "type": "uuid",
-          "primaryKey": true,
-          "notNull": true,
-          "default": "gen_random_uuid()"
-        },
-        "chunk_x": {
-          "name": "chunk_x",
-          "type": "integer",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "chunk_y": {
-          "name": "chunk_y",
-          "type": "integer",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "biome_data": {
-          "name": "biome_data",
-          "type": "jsonb",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "elevation_data": {
-          "name": "elevation_data",
-          "type": "jsonb",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "resource_data": {
-          "name": "resource_data",
-          "type": "jsonb",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "terrain_data": {
-          "name": "terrain_data",
-          "type": "jsonb",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "version": {
-          "name": "version",
-          "type": "integer",
-          "primaryKey": false,
-          "notNull": true,
-          "default": 1
-        },
-        "created_at": {
-          "name": "created_at",
-          "type": "timestamp",
-          "primaryKey": false,
-          "notNull": true,
-          "default": "now()"
-        },
-        "updated_at": {
-          "name": "updated_at",
-          "type": "timestamp",
-          "primaryKey": false,
-          "notNull": true,
-          "default": "now()"
-        }
-      },
-      "indexes": {
-        "chunk_coordinates_idx": {
-          "name": "chunk_coordinates_idx",
-          "columns": [
-            {
-              "expression": "chunk_x",
-              "isExpression": false,
-              "asc": true,
-              "nulls": "last"
-            },
-            {
-              "expression": "chunk_y",
-              "isExpression": false,
-              "asc": true,
-              "nulls": "last"
-            }
-          ],
-          "isUnique": false,
-          "concurrently": false,
-          "method": "btree",
-          "with": {}
-        },
-        "updated_at_idx": {
-          "name": "updated_at_idx",
-          "columns": [
-            {
-              "expression": "updated_at",
-              "isExpression": false,
-              "asc": true,
-              "nulls": "last"
-            }
-          ],
-          "isUnique": false,
-          "concurrently": false,
-          "method": "btree",
-          "with": {}
-        }
-      },
       "foreignKeys": {},
       "compositePrimaryKeys": {},
       "uniqueConstraints": {},
@@ -439,12 +373,6 @@
           "type": "text",
           "primaryKey": false,
           "notNull": true
-        },
-        "chunk_id": {
-          "name": "chunk_id",
-          "type": "uuid",
-          "primaryKey": false,
-          "notNull": false
         },
         "event_data": {
           "name": "event_data",
@@ -482,21 +410,6 @@
           "method": "btree",
           "with": {}
         },
-        "world_events_chunk_idx": {
-          "name": "world_events_chunk_idx",
-          "columns": [
-            {
-              "expression": "chunk_id",
-              "isExpression": false,
-              "asc": true,
-              "nulls": "last"
-            }
-          ],
-          "isUnique": false,
-          "concurrently": false,
-          "method": "btree",
-          "with": {}
-        },
         "world_events_time_idx": {
           "name": "world_events_time_idx",
           "columns": [
@@ -513,21 +426,97 @@
           "with": {}
         }
       },
-      "foreignKeys": {
-        "world_events_chunk_id_world_chunks_id_fk": {
-          "name": "world_events_chunk_id_world_chunks_id_fk",
-          "tableFrom": "world_events",
-          "tableTo": "world_chunks",
-          "columnsFrom": [
-            "chunk_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
-          "onDelete": "no action",
-          "onUpdate": "no action"
+      "foreignKeys": {},
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "policies": {},
+      "checkConstraints": {},
+      "isRLSEnabled": false
+    },
+    "public.worlds": {
+      "name": "worlds",
+      "schema": "",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "uuid",
+          "primaryKey": true,
+          "notNull": true,
+          "default": "gen_random_uuid()"
+        },
+        "name": {
+          "name": "name",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "seed": {
+          "name": "seed",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "description": {
+          "name": "description",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "is_active": {
+          "name": "is_active",
+          "type": "boolean",
+          "primaryKey": false,
+          "notNull": true,
+          "default": true
+        },
+        "created_at": {
+          "name": "created_at",
+          "type": "timestamp",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        },
+        "updated_at": {
+          "name": "updated_at",
+          "type": "timestamp",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
         }
       },
+      "indexes": {
+        "worlds_name_idx": {
+          "name": "worlds_name_idx",
+          "columns": [
+            {
+              "expression": "name",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        },
+        "worlds_active_idx": {
+          "name": "worlds_active_idx",
+          "columns": [
+            {
+              "expression": "is_active",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        }
+      },
+      "foreignKeys": {},
       "compositePrimaryKeys": {},
       "uniqueConstraints": {},
       "policies": {},
@@ -535,7 +524,17 @@
       "isRLSEnabled": false
     }
   },
-  "enums": {},
+  "enums": {
+    "public.scan_type": {
+      "name": "scan_type",
+      "schema": "public",
+      "values": [
+        "resource",
+        "geological",
+        "full"
+      ]
+    }
+  },
   "schemas": {},
   "sequences": {},
   "roles": {},

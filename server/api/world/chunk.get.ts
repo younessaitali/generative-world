@@ -1,7 +1,6 @@
 import { z } from 'zod/v4';
 import defineValidatedEventHandler from '~~/server/utils/define-validated-event-handler';
-import { generateChunkResources } from '~~/server/utils/resource-generator';
-import { generateChunkTerrain } from '~~/server/utils/terrain-generator';
+import { generateOrLoadChunk } from '~~/server/utils/resource-generator';
 
 const querySchema = z.object({
   x: z.coerce.number().int().default(0),
@@ -16,23 +15,23 @@ export default defineValidatedEventHandler(
     const { x, y } = event.context.validated.query;
 
     const chunkSize = 16;
+    const worldId = 'default';
 
-    const terrainData = generateChunkTerrain(x, y, chunkSize);
-
-    const resources = generateChunkResources(x, y, chunkSize);
+    const chunkData = await generateOrLoadChunk(x, y, chunkSize, worldId);
 
     return {
       success: true,
-      terrain: terrainData,
+      terrain: chunkData.terrain,
       coordinates: { x, y },
-      chunkSize,
-      resources,
+      chunkSize: chunkData.size,
+      resources: chunkData.resources,
       metadata: {
-        version: '3.0.0',
-        generationMethod: 'multi_layer_noise',
+        ...chunkData.metadata,
         generationTime: Date.now(),
+        cached: chunkData.metadata?.generationMethod?.includes('cache'),
+        dataSource: chunkData.metadata?.generationMethod || 'unknown',
       },
-      timestamp: new Date().toISOString(),
+      timestamp: chunkData.timestamp,
     };
   },
 );

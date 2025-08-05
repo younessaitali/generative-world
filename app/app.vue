@@ -1,10 +1,4 @@
-<template>
-  <NuxtPage />
-</template>
-
 <script setup lang="ts">
-import { useHead } from '#imports';
-
 useHead({
   title: 'Generative World Explorer',
   meta: [
@@ -14,4 +8,19 @@ useHead({
     },
   ],
 });
+
+const { initializePlayer } = usePlayerStore();
+
+onMounted(async () => {
+  try {
+    await initializePlayer();
+    console.log('Player system initialized successfully');
+  } catch (initError) {
+    console.error('Failed to initialize player system:', initError);
+  }
+});
 </script>
+
+<template>
+  <NuxtPage />
+</template>
