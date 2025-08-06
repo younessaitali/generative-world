@@ -1,6 +1,6 @@
 {
-  "id": "1b9d17f8-d7f7-47c3-9c8f-6c23ee8a3850",
-  "prevId": "52425422-3f26-4f84-9dc0-6e541d408704",
+  "id": "e39f3141-5f7b-4133-8a27-24ebdf023962",
+  "prevId": "549b1f45-7e2a-4394-840e-123eda501a1e",
   "version": "7",
   "dialect": "postgresql",
   "tables": {
@@ -38,6 +38,12 @@
           "type": "real",
           "primaryKey": false,
           "notNull": true
+        },
+        "position": {
+          "name": "position",
+          "type": "geometry(point)",
+          "primaryKey": false,
+          "notNull": false
         },
         "resource_type": {
           "name": "resource_type",
@@ -154,6 +160,21 @@
           "concurrently": false,
           "method": "btree",
           "with": {}
+        },
+        "extractors_position_spatial_idx": {
+          "name": "extractors_position_spatial_idx",
+          "columns": [
+            {
+              "expression": "position",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "gist",
+          "with": {}
         }
       },
       "foreignKeys": {
@@ -185,7 +206,17 @@
         }
       },
       "compositePrimaryKeys": {},
-      "uniqueConstraints": {},
+      "uniqueConstraints": {
+        "extractors_x_y_world_id_unique": {
+          "name": "extractors_x_y_world_id_unique",
+          "nullsNotDistinct": false,
+          "columns": [
+            "x",
+            "y",
+            "world_id"
+          ]
+        }
+      },
       "policies": {},
       "checkConstraints": {},
       "isRLSEnabled": false
@@ -207,21 +238,15 @@
           "primaryKey": false,
           "notNull": true
         },
-        "scan_x": {
-          "name": "scan_x",
-          "type": "real",
+        "scan_center": {
+          "name": "scan_center",
+          "type": "geometry(point)",
           "primaryKey": false,
-          "notNull": true
+          "notNull": false
         },
-        "scan_y": {
-          "name": "scan_y",
-          "type": "real",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "scan_radius": {
-          "name": "scan_radius",
-          "type": "real",
+        "scan_area": {
+          "name": "scan_area",
+          "type": "geometry(point)",
           "primaryKey": false,
           "notNull": true
         },
@@ -266,6 +291,36 @@
           "isUnique": false,
           "concurrently": false,
           "method": "btree",
+          "with": {}
+        },
+        "player_scans_center_spatial_idx": {
+          "name": "player_scans_center_spatial_idx",
+          "columns": [
+            {
+              "expression": "scan_center",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "gist",
+          "with": {}
+        },
+        "player_scans_area_spatial_idx": {
+          "name": "player_scans_area_spatial_idx",
+          "columns": [
+            {
+              "expression": "scan_area",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "gist",
           "with": {}
         }
       },
@@ -417,6 +472,140 @@
       "checkConstraints": {},
       "isRLSEnabled": false
     },
+    "public.resource_claims": {
+      "name": "resource_claims",
+      "schema": "",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "uuid",
+          "primaryKey": true,
+          "notNull": true,
+          "default": "gen_random_uuid()"
+        },
+        "player_id": {
+          "name": "player_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "resource_vein_id": {
+          "name": "resource_vein_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "claimed_at": {
+          "name": "claimed_at",
+          "type": "timestamp",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        },
+        "last_activity": {
+          "name": "last_activity",
+          "type": "timestamp",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        },
+        "claim_type": {
+          "name": "claim_type",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "'active'"
+        }
+      },
+      "indexes": {
+        "resource_claims_player_idx": {
+          "name": "resource_claims_player_idx",
+          "columns": [
+            {
+              "expression": "player_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        },
+        "resource_claims_vein_idx": {
+          "name": "resource_claims_vein_idx",
+          "columns": [
+            {
+              "expression": "resource_vein_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        },
+        "resource_claims_activity_idx": {
+          "name": "resource_claims_activity_idx",
+          "columns": [
+            {
+              "expression": "last_activity",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        }
+      },
+      "foreignKeys": {
+        "resource_claims_player_id_players_id_fk": {
+          "name": "resource_claims_player_id_players_id_fk",
+          "tableFrom": "resource_claims",
+          "tableTo": "players",
+          "columnsFrom": [
+            "player_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        },
+        "resource_claims_resource_vein_id_resource_veins_id_fk": {
+          "name": "resource_claims_resource_vein_id_resource_veins_id_fk",
+          "tableFrom": "resource_claims",
+          "tableTo": "resource_veins",
+          "columnsFrom": [
+            "resource_vein_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {
+        "resource_claims_resource_vein_id_unique": {
+          "name": "resource_claims_resource_vein_id_unique",
+          "nullsNotDistinct": false,
+          "columns": [
+            "resource_vein_id"
+          ]
+        }
+      },
+      "policies": {},
+      "checkConstraints": {},
+      "isRLSEnabled": false
+    },
     "public.resource_veins": {
       "name": "resource_veins",
       "schema": "",
@@ -427,6 +616,12 @@
           "primaryKey": true,
           "notNull": true,
           "default": "gen_random_uuid()"
+        },
+        "world_id": {
+          "name": "world_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
         },
         "resource_type": {
           "name": "resource_type",
@@ -451,6 +646,18 @@
           "type": "real",
           "primaryKey": false,
           "notNull": true
+        },
+        "center_point": {
+          "name": "center_point",
+          "type": "geometry(point)",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "extraction_area": {
+          "name": "extraction_area",
+          "type": "geometry(point)",
+          "primaryKey": false,
+          "notNull": false
         },
         "density": {
           "name": "density",
@@ -499,6 +706,21 @@
         }
       },
       "indexes": {
+        "resource_veins_world_id_idx": {
+          "name": "resource_veins_world_id_idx",
+          "columns": [
+            {
+              "expression": "world_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        },
         "resource_veins_type_idx": {
           "name": "resource_veins_type_idx",
           "columns": [
@@ -534,9 +756,53 @@
           "concurrently": false,
           "method": "btree",
           "with": {}
+        },
+        "resource_veins_center_spatial_idx": {
+          "name": "resource_veins_center_spatial_idx",
+          "columns": [
+            {
+              "expression": "center_point",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "gist",
+          "with": {}
+        },
+        "resource_veins_area_spatial_idx": {
+          "name": "resource_veins_area_spatial_idx",
+          "columns": [
+            {
+              "expression": "extraction_area",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "gist",
+          "with": {}
         }
       },
-      "foreignKeys": {},
+      "foreignKeys": {
+        "resource_veins_world_id_worlds_id_fk": {
+          "name": "resource_veins_world_id_worlds_id_fk",
+          "tableFrom": "resource_veins",
+          "tableTo": "worlds",
+          "columnsFrom": [
+            "world_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        }
+      },
       "compositePrimaryKeys": {},
       "uniqueConstraints": {},
       "policies": {},

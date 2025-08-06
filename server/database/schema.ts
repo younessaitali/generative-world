@@ -9,6 +9,7 @@ import {
   index,
   pgEnum,
   unique,
+  geometry,
 } from 'drizzle-orm/pg-core';
 import { relations } from 'drizzle-orm';
 import { createInsertSchema, createSelectSchema } from 'drizzle-zod';
@@ -59,10 +60,15 @@ export const resourceVeins = pgTable(
   'resource_veins',
   {
     id: uuid('id').primaryKey().defaultRandom(),
+    worldId: uuid('world_id')
+      .notNull()
+      .references(() => worlds.id, { onDelete: 'cascade' }),
     resourceType: text('resource_type').notNull(),
     centerX: real('center_x').notNull(),
     centerY: real('center_y').notNull(),
     radius: real('radius').notNull(),
+    centerPoint: geometry('center_point', { type: 'point', mode: 'xy', srid: 4326 }),
+    extractionArea: geometry('extraction_area', { type: 'polygon', mode: 'xy', srid: 4326 }),
     density: real('density').notNull(),
     quality: real('quality').notNull(),
     depth: real('depth'),
@@ -72,8 +78,11 @@ export const resourceVeins = pgTable(
     createdAt: timestamp('created_at').notNull().defaultNow(),
   },
   (table) => [
+    index('resource_veins_world_id_idx').on(table.worldId),
     index('resource_veins_type_idx').on(table.resourceType),
     index('resource_veins_location_idx').on(table.centerX, table.centerY),
+    index('resource_veins_center_spatial_idx').using('gist', table.centerPoint),
+    index('resource_veins_area_spatial_idx').using('gist', table.extractionArea),
   ],
 );
 
@@ -82,15 +91,40 @@ export const playerScans = pgTable(
   {
     id: uuid('id').primaryKey().defaultRandom(),
     sessionId: text('session_id').notNull(),
-    scanX: real('scan_x').notNull(),
-    scanY: real('scan_y').notNull(),
-    scanRadius: real('scan_radius').notNull(),
+    scanCenter: geometry('scan_center', { type: 'point', mode: 'xy', srid: 4326 }),
+    scanArea: geometry('scan_area', { type: 'polygon', mode: 'xy', srid: 4326 }).notNull(), // Changed to polygon
     scanType: scanTypeEnum('scan_type').notNull(),
     results: jsonb('results').notNull(),
     scannedAt: timestamp('scanned_at').notNull().defaultNow(),
   },
   (table) => [
     index('player_scans_session_time_idx').on(table.sessionId, table.scannedAt),
+    index('player_scans_center_spatial_idx').using('gist', table.scanCenter),
+    index('player_scans_area_spatial_idx').using('gist', table.scanArea),
+  ],
+);
+
+export const resourceClaims = pgTable(
+  'resource_claims',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    playerId: uuid('player_id')
+      .notNull()
+      .references(() => players.id, { onDelete: 'cascade' }),
+    resourceVeinId: uuid('resource_vein_id')
+      .notNull()
+      .references(() => resourceVeins.id, { onDelete: 'cascade' }),
+    claimedAt: timestamp('claimed_at').notNull().defaultNow(),
+    lastActivity: timestamp('last_activity').notNull().defaultNow(),
+    claimType: text('claim_type', { enum: ['active', 'reserved'] })
+      .notNull()
+      .default('active'),
+  },
+  (table) => [
+    unique().on(table.resourceVeinId), // Only one claim per vein
+    index('resource_claims_player_idx').on(table.playerId),
+    index('resource_claims_vein_idx').on(table.resourceVeinId),
+    index('resource_claims_activity_idx').on(table.lastActivity),
   ],
 );
 
@@ -121,6 +155,7 @@ export const extractors = pgTable(
       .references(() => worlds.id, { onDelete: 'cascade' }),
     x: real('x').notNull(),
     y: real('y').notNull(),
+    position: geometry('position', { type: 'point', mode: 'xy', srid: 4326 }),
     resourceType: text('resource_type').notNull(),
     status: text('status').notNull().default('IDLE'),
     efficiency: real('efficiency').notNull().default(1.0),
@@ -134,6 +169,7 @@ export const extractors = pgTable(
     index('extractors_world_id_idx').on(table.worldId),
     index('extractors_resource_type_idx').on(table.resourceType),
     index('extractors_location_idx').on(table.x, table.y),
+    index('extractors_position_spatial_idx').using('gist', table.position),
     unique().on(table.x, table.y, table.worldId),
   ],
 );
@@ -159,8 +195,24 @@ export const playersRelations = relations(players, ({ one, many }) => ({
     references: [worlds.id],
   }),
   playerScans: many(playerScans),
+  extractors: many(extractors),
+  resourceClaims: many(resourceClaims),
 }));
 
+export const resourceVeinsRelations = relations(resourceVeins, ({ one, many }) => ({
+  resourceClaim: one(resourceClaims),
+}));
+
+export const resourceClaimsRelations = relations(resourceClaims, ({ one }) => ({
+  player: one(players, {
+    fields: [resourceClaims.playerId],
+    references: [players.id],
+  }),
+  resourceVein: one(resourceVeins, {
+    fields: [resourceClaims.resourceVeinId],
+    references: [resourceVeins.id],
+  }),
+}));
 
 // Zod Schemas for validation
 
@@ -196,9 +248,8 @@ export const insertResourceVeinSchema = createInsertSchema(resourceVeins, {
 export const selectResourceVeinSchema = createSelectSchema(resourceVeins);
 
 export const insertPlayerScanSchema = createInsertSchema(playerScans, {
-  scanX: z.number(),
-  scanY: z.number(),
-  scanRadius: z.number().positive(),
+  sessionId: z.string().min(1),
+  scanType: z.enum(['resource', 'geological', 'full']),
   results: z.record(z.string(), z.any()),
 });
 

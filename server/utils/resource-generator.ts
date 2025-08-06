@@ -8,6 +8,9 @@ import {
 } from '~~/server/utils/terrain-generator';
 import { getCacheService } from '~~/server/services/CacheService';
 import { getStorageService } from '~~/server/services/StorageService';
+import { db } from '~~/server/database/connection';
+import { resourceVeins } from '~~/server/database/schema';
+import { sql } from 'drizzle-orm';
 import type {
   ResourceVein,
   ResourceType,
@@ -61,8 +64,55 @@ const RESOURCE_GENERATION_CONFIG = {
 };
 
 /**
- * Generates resources for a given chunk
+ * Persists a resource vein to the database with PostGIS spatial data
  */
+async function persistResourceVeinToDatabase(vein: ResourceVein, worldId: string): Promise<void> {
+  const { worldX, worldY } = vein.location;
+  const { size, richness, depth } = vein.deposit;
+  const { purity } = vein.quality;
+
+  const extractionRadius = Math.sqrt(size) * 10;
+
+  const centerPoint = sql`ST_SetSRID(ST_MakePoint(${worldX}, ${worldY}), 4326)`;
+  const extractionArea = sql`ST_SetSRID(ST_Buffer(ST_MakePoint(${worldX}, ${worldY}), ${extractionRadius}), 4326)`;
+
+  try {
+    await db.insert(resourceVeins).values({
+      worldId,
+      resourceType: vein.type,
+      centerX: worldX,
+      centerY: worldY,
+      radius: extractionRadius,
+      centerPoint,
+      extractionArea,
+      density: richness,
+      quality: purity,
+      depth,
+      isExhausted: false,
+      extractedAmount: vein.extraction.totalExtracted,
+    });
+  } catch (error) {
+    console.error(`Failed to persist resource vein ${vein.id}:`, error);
+    // Don't throw - resource generation should continue even if DB fails
+  }
+}
+/**
+ * Generates and persists resource veins for a chunk to the database
+ */
+export async function generateAndPersistChunkResources(
+  chunkX: number,
+  chunkY: number,
+  chunkSize: number = 16,
+  worldId: string = 'default',
+): Promise<ResourceVein[]> {
+  const resources = generateChunkResources(chunkX, chunkY, chunkSize);
+
+  // Persist all resource veins to database in parallel
+  await Promise.allSettled(resources.map((vein) => persistResourceVeinToDatabase(vein, worldId)));
+
+  return resources;
+}
+
 export function generateChunkResources(
   chunkX: number,
   chunkY: number,
@@ -70,33 +120,27 @@ export function generateChunkResources(
 ): ResourceVein[] {
   const resources: ResourceVein[] = [];
 
-  // Get all available resource types
   const resourceTypes = Object.keys(RESOURCE_CONFIGS) as ResourceType[];
 
-  // Generate resources for each cell in the chunk
   for (let cellY = 0; cellY < chunkSize; cellY++) {
     for (let cellX = 0; cellX < chunkSize; cellX++) {
       const worldX = chunkX * chunkSize + cellX;
       const worldY = chunkY * chunkSize + cellY;
 
-      // Check if this cell should have a resource vein
       const densityValue = resourceDensityNoise(
         worldX * RESOURCE_GENERATION_CONFIG.DENSITY_NOISE_SCALE,
         worldY * RESOURCE_GENERATION_CONFIG.DENSITY_NOISE_SCALE,
       );
 
-      // Apply base probability check
       if (densityValue < RESOURCE_GENERATION_CONFIG.DENSITY_THRESHOLD) {
-        continue; // No resource in this cell
+        continue;
       }
 
-      // Determine resource type based on noise and rarity
       const resourceType = selectResourceType(worldX, worldY, resourceTypes);
       if (!resourceType) {
-        continue; // No suitable resource type
+        continue;
       }
 
-      // Generate the resource vein
       const resourceVein = generateResourceVein(
         resourceType,
         worldX,
@@ -379,7 +423,10 @@ export async function generateOrLoadChunk(
         try {
           await cacheService.setChunk(worldId, chunkX, chunkY, storedChunk);
         } catch (error) {
-          console.error(`❌ [CACHE WRITE ERROR] Failed to cache chunk (${chunkX}, ${chunkY}):`, error);
+          console.error(
+            `❌ [CACHE WRITE ERROR] Failed to cache chunk (${chunkX}, ${chunkY}):`,
+            error,
+          );
         }
       });
 
@@ -403,7 +450,6 @@ export async function generateOrLoadChunk(
       },
     };
 
-
     // Step 4: Asynchronously save to both storage and cache
     setImmediate(async () => {
       try {
@@ -420,8 +466,13 @@ export async function generateOrLoadChunk(
     return chunkData;
   } catch (error) {
     // Fallback to generation-only if entire persistence layer fails
-    console.error(`❌ [PERSISTENCE ERROR] Full persistence failure for chunk (${chunkX}, ${chunkY}):`, error);
-    console.log(`🔄 [FALLBACK] Falling back to generation-only mode for chunk (${chunkX}, ${chunkY})`);
+    console.error(
+      `❌ [PERSISTENCE ERROR] Full persistence failure for chunk (${chunkX}, ${chunkY}):`,
+      error,
+    );
+    console.log(
+      `🔄 [FALLBACK] Falling back to generation-only mode for chunk (${chunkX}, ${chunkY})`,
+    );
 
     const terrain = generateChunkTerrain(chunkX, chunkY, chunkSize);
     const resources = generateChunkResources(chunkX, chunkY, chunkSize);

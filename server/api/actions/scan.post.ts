@@ -6,6 +6,7 @@ import type { ResourceVein, ScanLevel } from '#shared/types/world';
 import { ScanLevel as ScanLevelEnum } from '#shared/types/world';
 import { db } from '~~/server/database/connection';
 import { playerScans } from '~~/server/database/schema';
+import { sql } from 'drizzle-orm';
 
 const scanBodySchema = z.object({
   x: z.number().min(-1000000).max(1000000),
@@ -135,21 +136,21 @@ export default defineValidatedEventHandler(
       try {
         await db.insert(playerScans).values({
           sessionId: player.sessionId,
-          scanX: worldX,
-          scanY: worldY,
-          scanRadius: searchRadius,
+          scanCenter: sql`ST_SetSRID(ST_MakePoint(${worldX}, ${worldY}), 4326)`,
+          scanArea: sql`ST_SetSRID(ST_MakePoint(${worldX}, ${worldY}), 4326)`,
           scanType: 'resource',
           results: {
             success: true,
             resourceFound: !!resourceVein,
             resourceType: resourceVein?.type || null,
             scanLevel: ScanLevelEnum.SURFACE,
+            coordinates: { worldX, worldY },
+            searchRadius,
           },
         });
       } catch (dbError) {
         console.warn('Failed to save scan to database:', dbError);
       }
-
       if (resourceVein) {
         const discoveredVein: ResourceVein = {
           ...resourceVein,

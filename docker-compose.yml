@@ -17,7 +17,7 @@ services:
       retries: 3
 
   postgres:
-    image: postgres:16-alpine
+    image: postgis/postgis:16-3.4
     container_name: generative-world-postgres
     restart: unless-stopped
     ports:
