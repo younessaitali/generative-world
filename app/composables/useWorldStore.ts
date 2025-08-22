@@ -2,6 +2,19 @@ import { ref, readonly } from '#imports';
 import { defineStore } from 'pinia';
 import { useCamera } from '~/composables/world/useCamera';
 
+export interface WorldStats {
+  chunksLoaded: number;
+  chunksVisible: number;
+  activeConnections: number;
+}
+
+export interface WorldConfig {
+  chunkSize: number;
+  cellSize: number;
+  cacheExpiration: number;
+  prefetchRadius: number;
+}
+
 export const useWorldStore = defineStore('world', () => {
   const cameraComposable = useCamera({
     initialX: 0,
@@ -11,13 +24,14 @@ export const useWorldStore = defineStore('world', () => {
     maxZoom: 10,
   });
 
-  const worldConfig = {
+  const worldConfig: WorldConfig = {
     chunkSize: 16,
     cellSize: 32,
     cacheExpiration: 3600,
     prefetchRadius: 1,
   };
-  const stats = ref({
+
+  const stats = ref<WorldStats>({
     chunksLoaded: 0,
     chunksVisible: 0,
     activeConnections: 0,
