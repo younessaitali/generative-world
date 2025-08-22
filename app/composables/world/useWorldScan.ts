@@ -3,7 +3,7 @@ import type { ResourceType, ResourceVein, ScanLevel } from '#shared/types/world'
 export interface ScanResult {
   x: number;
   y: number;
-  resources: Array<{ type: ResourceType; abundance: number }>;
+  resources: ReadonlyArray<{ type: ResourceType; abundance: number }>;
   scannedAt: Date;
   message?: string;
   discovered?: ResourceVein;

@@ -21,6 +21,8 @@
     "db:migrate": "drizzle-kit migrate",
     "db:push": "drizzle-kit push",
     "db:studio": "drizzle-kit studio",
+    "db:reset": "bash ./scripts/reset-dev-db.sh -y",
+    "db:reset:migrate": "bash ./scripts/reset-dev-db.sh -y -m",
     "dev:full": "./start-dev.sh",
     "lint": "oxlint && eslint .",
     "lint:fix": "oxlint --fix && eslint . --fix",
@@ -29,6 +31,7 @@
     "type-check": "nuxt typecheck"
   },
   "dependencies": {
+  "@iconify-json/lucide": "^1.2.63",
     "@aws-sdk/client-s3": "^3.859.0",
     "@nuxt/eslint": "1.6.0",
     "@nuxt/ui": "3.2.0",
@@ -52,6 +55,7 @@
     "zod": "^4.0.5"
   },
   "devDependencies": {
+    "@iconify-json/lucide": "^1.2.63",
     "@types/pg": "^8.15.5",
     "@types/uuid": "^10.0.0",
     "dotenv": "^17.2.1",
@@ -60,6 +64,6 @@
     "eslint-plugin-oxlint": "^1.8.0",
     "eslint-plugin-prettier": "^5.5.3",
     "oxlint": "^1.8.0",
-    "prettier": "^3.6.2"
+  "prettier": "^3.6.2"
   }
 }

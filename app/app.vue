@@ -22,5 +22,7 @@ onMounted(async () => {
 </script>
 
 <template>
-  <NuxtPage />
+  <UApp>
+    <NuxtPage />
+  </UApp>
 </template>

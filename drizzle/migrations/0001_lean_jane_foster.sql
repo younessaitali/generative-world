@@ -5,7 +5,7 @@ CREATE TABLE "extractors" (
 	"world_id" uuid NOT NULL,
 	"x" real NOT NULL,
 	"y" real NOT NULL,
-	"position" geometry(point),
+	"position" geometry(point, 4326) NOT NULL,
 	"resource_type" text NOT NULL,
 	"status" text DEFAULT 'IDLE' NOT NULL,
 	"efficiency" real DEFAULT 1 NOT NULL,
@@ -19,8 +19,8 @@ CREATE TABLE "extractors" (
 CREATE TABLE "player_scans" (
 	"id" uuid PRIMARY KEY DEFAULT gen_random_uuid() NOT NULL,
 	"session_id" text NOT NULL,
-	"scan_center" geometry(point),
-	"scan_area" geometry(point),
+	"scan_center" geometry(point, 4326) NOT NULL,
+	"scan_area" geometry(polygon, 4326) NOT NULL,
 	"scan_type" "scan_type" NOT NULL,
 	"results" jsonb NOT NULL,
 	"scanned_at" timestamp DEFAULT now() NOT NULL
@@ -56,8 +56,8 @@ CREATE TABLE "resource_veins" (
 	"center_x" real NOT NULL,
 	"center_y" real NOT NULL,
 	"radius" real NOT NULL,
-	"center_point" geometry(point),
-	"extraction_area" geometry(point),
+	"center_point" geometry(point, 4326) NOT NULL,
+	"extraction_area" geometry(polygon, 4326) NOT NULL,
 	"density" real NOT NULL,
 	"quality" real NOT NULL,
 	"depth" real,
@@ -65,6 +65,15 @@ CREATE TABLE "resource_veins" (
 	"extracted_amount" real DEFAULT 0 NOT NULL,
 	"discovered_at" timestamp,
 	"created_at" timestamp DEFAULT now() NOT NULL
+);
+--> statement-breakpoint
+CREATE TABLE "world_chunks" (
+	"id" uuid PRIMARY KEY DEFAULT gen_random_uuid() NOT NULL,
+	"world_id" uuid NOT NULL,
+	"chunk_x" real NOT NULL,
+	"chunk_y" real NOT NULL,
+	"activated_at" timestamp DEFAULT now() NOT NULL,
+	CONSTRAINT "world_chunk_coords_unique" UNIQUE("world_id","chunk_x","chunk_y")
 );
 --> statement-breakpoint
 CREATE TABLE "world_events" (
@@ -91,6 +100,7 @@ ALTER TABLE "players" ADD CONSTRAINT "players_world_id_worlds_id_fk" FOREIGN KEY
 ALTER TABLE "resource_claims" ADD CONSTRAINT "resource_claims_player_id_players_id_fk" FOREIGN KEY ("player_id") REFERENCES "public"."players"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "resource_claims" ADD CONSTRAINT "resource_claims_resource_vein_id_resource_veins_id_fk" FOREIGN KEY ("resource_vein_id") REFERENCES "public"."resource_veins"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "resource_veins" ADD CONSTRAINT "resource_veins_world_id_worlds_id_fk" FOREIGN KEY ("world_id") REFERENCES "public"."worlds"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
+ALTER TABLE "world_chunks" ADD CONSTRAINT "world_chunks_world_id_worlds_id_fk" FOREIGN KEY ("world_id") REFERENCES "public"."worlds"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
 CREATE INDEX "extractors_player_id_idx" ON "extractors" USING btree ("player_id");--> statement-breakpoint
 CREATE INDEX "extractors_world_id_idx" ON "extractors" USING btree ("world_id");--> statement-breakpoint
 CREATE INDEX "extractors_resource_type_idx" ON "extractors" USING btree ("resource_type");--> statement-breakpoint
@@ -110,11 +120,9 @@ CREATE INDEX "resource_veins_type_idx" ON "resource_veins" USING btree ("resourc
 CREATE INDEX "resource_veins_location_idx" ON "resource_veins" USING btree ("center_x","center_y");--> statement-breakpoint
 CREATE INDEX "resource_veins_center_spatial_idx" ON "resource_veins" USING gist ("center_point");--> statement-breakpoint
 CREATE INDEX "resource_veins_area_spatial_idx" ON "resource_veins" USING gist ("extraction_area");--> statement-breakpoint
+CREATE INDEX "world_chunks_world_id_idx" ON "world_chunks" USING btree ("world_id");--> statement-breakpoint
+CREATE INDEX "world_chunks_coords_idx" ON "world_chunks" USING btree ("chunk_x","chunk_y");--> statement-breakpoint
 CREATE INDEX "world_events_type_idx" ON "world_events" USING btree ("event_type");--> statement-breakpoint
 CREATE INDEX "world_events_time_idx" ON "world_events" USING btree ("created_at");--> statement-breakpoint
 CREATE INDEX "worlds_name_idx" ON "worlds" USING btree ("name");--> statement-breakpoint
 CREATE INDEX "worlds_active_idx" ON "worlds" USING btree ("is_active");
-
-
--- Enable PostGIS extension for spatial data support
-CREATE EXTENSION IF NOT EXISTS postgis;

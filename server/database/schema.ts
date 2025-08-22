@@ -34,6 +34,24 @@ export const worlds = pgTable(
   ],
 );
 
+export const worldChunks = pgTable(
+  'world_chunks',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    worldId: uuid('world_id')
+      .notNull()
+      .references(() => worlds.id, { onDelete: 'cascade' }),
+    chunkX: real('chunk_x').notNull(),
+    chunkY: real('chunk_y').notNull(),
+    activatedAt: timestamp('activated_at').notNull().defaultNow(),
+  },
+  (table) => [
+    unique('world_chunk_coords_unique').on(table.worldId, table.chunkX, table.chunkY),
+    index('world_chunks_world_id_idx').on(table.worldId),
+    index('world_chunks_coords_idx').on(table.chunkX, table.chunkY),
+  ],
+);
+
 export const players = pgTable(
   'players',
   {
@@ -67,8 +85,16 @@ export const resourceVeins = pgTable(
     centerX: real('center_x').notNull(),
     centerY: real('center_y').notNull(),
     radius: real('radius').notNull(),
-    centerPoint: geometry('center_point', { type: 'point', mode: 'xy', srid: 4326 }),
-    extractionArea: geometry('extraction_area', { type: 'polygon', mode: 'xy', srid: 4326 }),
+    centerPoint: geometry('center_point', {
+      type: 'point',
+      mode: 'xy',
+      srid: 4326,
+    }).notNull(),
+    extractionArea: geometry('extraction_area', {
+      type: 'polygon',
+      mode: 'xy',
+      srid: 4326,
+    }).notNull(),
     density: real('density').notNull(),
     quality: real('quality').notNull(),
     depth: real('depth'),
@@ -91,8 +117,16 @@ export const playerScans = pgTable(
   {
     id: uuid('id').primaryKey().defaultRandom(),
     sessionId: text('session_id').notNull(),
-    scanCenter: geometry('scan_center', { type: 'point', mode: 'xy', srid: 4326 }),
-    scanArea: geometry('scan_area', { type: 'polygon', mode: 'xy', srid: 4326 }).notNull(), // Changed to polygon
+    scanCenter: geometry('scan_center', {
+      type: 'point',
+      mode: 'xy',
+      srid: 4326,
+    }).notNull(),
+    scanArea: geometry('scan_area', {
+      type: 'polygon',
+      mode: 'xy',
+      srid: 4326,
+    }).notNull(),
     scanType: scanTypeEnum('scan_type').notNull(),
     results: jsonb('results').notNull(),
     scannedAt: timestamp('scanned_at').notNull().defaultNow(),
@@ -155,7 +189,11 @@ export const extractors = pgTable(
       .references(() => worlds.id, { onDelete: 'cascade' }),
     x: real('x').notNull(),
     y: real('y').notNull(),
-    position: geometry('position', { type: 'point', mode: 'xy', srid: 4326 }),
+    position: geometry('position', {
+      type: 'polygon',
+      mode: 'xy',
+      srid: 4326,
+    }).notNull(),
     resourceType: text('resource_type').notNull(),
     status: text('status').notNull().default('IDLE'),
     efficiency: real('efficiency').notNull().default(1.0),

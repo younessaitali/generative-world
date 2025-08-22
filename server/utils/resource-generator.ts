@@ -18,7 +18,6 @@ import type {
   ClimateType,
   EnvironmentalHazard,
   ChunkData,
-  ExtendedTerrainType,
 } from '#shared/types/world';
 import {
   ResourceGrade as ResourceGradeEnum,
@@ -26,6 +25,7 @@ import {
   EnvironmentalHazard as EnvironmentalHazardEnum,
   ScanLevel as ScanLevelEnum,
 } from '#shared/types/world';
+import { isValidUUID } from '#shared/index';
 
 /**
  * Resource Generation Utility
@@ -96,6 +96,72 @@ async function persistResourceVeinToDatabase(vein: ResourceVein, worldId: string
     // Don't throw - resource generation should continue even if DB fails
   }
 }
+/**
+ * Ensures resource veins exist in database for chunks required by a spatial query.
+ * This implements the "lazy persistence" pattern - veins are generated and saved
+ * to the database only when first needed for queries.
+ */
+export async function ensureChunksHavePersistedVeins(
+  chunksToCheck: Array<{ chunkX: number; chunkY: number }>,
+  worldId: string,
+  chunkSize: number = 16,
+): Promise<void> {
+  if (!worldId || !isValidUUID(worldId)) {
+    console.warn('⚠️ [PERSISTENCE] Invalid worldId provided, skipping vein persistence');
+    return;
+  }
+
+  try {
+    const chunkEnvelopes = chunksToCheck.map(({ chunkX, chunkY }) => {
+      const minX = chunkX * chunkSize;
+      const maxX = (chunkX + 1) * chunkSize - 1;
+      const minY = chunkY * chunkSize;
+      const maxY = (chunkY + 1) * chunkSize - 1;
+      return { chunkX, chunkY, minX, maxX, minY, maxY };
+    });
+
+    const existingVeinsPerChunk = await Promise.all(
+      chunkEnvelopes.map(async ({ chunkX, chunkY, minX, maxX, minY, maxY }) => {
+        const count = await db
+          .select({ count: sql<number>`count(*)` })
+          .from(resourceVeins)
+          .where(
+            sql`${resourceVeins.worldId} = ${worldId}
+                AND ${resourceVeins.centerX} >= ${minX}
+                AND ${resourceVeins.centerX} <= ${maxX}
+                AND ${resourceVeins.centerY} >= ${minY}
+                AND ${resourceVeins.centerY} <= ${maxY}`,
+          );
+        return { chunkX, chunkY, hasVeins: count[0].count > 0 };
+      }),
+    );
+
+    // Persist veins for chunks that don't have any in the database
+    const chunksNeedingVeins = existingVeinsPerChunk
+      .filter(({ hasVeins }) => !hasVeins)
+      .map(({ chunkX, chunkY }) => ({ chunkX, chunkY }));
+
+    if (chunksNeedingVeins.length > 0) {
+      console.log(
+        `📍 [PERSISTENCE] Generating and persisting veins for ${chunksNeedingVeins.length} chunks in world ${worldId}`,
+      );
+
+      await Promise.all(
+        chunksNeedingVeins.map(({ chunkX, chunkY }) =>
+          generateAndPersistChunkResources(chunkX, chunkY, chunkSize, worldId),
+        ),
+      );
+
+      console.log(
+        `✅ [PERSISTENCE] Successfully persisted veins for chunks: ${chunksNeedingVeins.map((c) => `(${c.chunkX},${c.chunkY})`).join(', ')}`,
+      );
+    }
+  } catch (error) {
+    console.error('❌ [PERSISTENCE] Failed to ensure chunks have persisted veins:', error);
+    // Don't throw - spatial queries should continue even if persistence fails
+  }
+}
+
 /**
  * Generates and persists resource veins for a chunk to the database
  */

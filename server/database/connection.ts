@@ -53,11 +53,10 @@ dbMonitorService.setPool(pool);
 
 export const db = drizzle(pool, {
   schema,
-  logger: process.env.NODE_ENV === 'development',
+  logger: process.env.NODE_ENV === 'development' && process.env.DB_LOG_QUERIES === 'true',
 });
 
 export { pool };
-
 
 export async function closeConnection(): Promise<void> {
   try {

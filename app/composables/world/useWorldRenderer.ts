@@ -7,6 +7,7 @@ import type {
   RendererStats,
   ResourceVein,
 } from '#shared/types/world';
+import type { ExtractorSprite } from './useExtractorManager';
 import { WORLD_CONFIG } from '~/config/world.config';
 
 export function useWorldRenderer(container: Ref<HTMLElement | null | undefined>) {
@@ -78,6 +79,26 @@ export function useWorldRenderer(container: Ref<HTMLElement | null | undefined>)
     stats.value = getStats();
   };
 
+  const addExtractor = (extractor: ExtractorSprite) => {
+    if (!rendererService) return;
+    rendererService.addExtractor(extractor);
+  };
+
+  const removeExtractor = (extractorId: string) => {
+    if (!rendererService) return;
+    rendererService.removeExtractor(extractorId);
+  };
+
+  const updateExtractorStatus = (extractorId: string, status: string) => {
+    if (!rendererService) return;
+    rendererService.updateExtractorStatus(extractorId, status);
+  };
+
+  const clearAllExtractors = () => {
+    if (!rendererService) return;
+    rendererService.clearAllExtractors();
+  };
+
   const destroy = () => {
     if (rendererService) {
       rendererService.destroy();
@@ -102,6 +123,10 @@ export function useWorldRenderer(container: Ref<HTMLElement | null | undefined>)
     resize,
     getStats,
     updateStats,
+    addExtractor,
+    removeExtractor,
+    updateExtractorStatus,
+    clearAllExtractors,
     destroy,
   };
 }

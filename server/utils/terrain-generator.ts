@@ -184,13 +184,6 @@ export function generateChunkTerrainLegacy(
 }
 
 /**
- * Utility function to check if a terrain type is water-based
- */
-export function isWaterTerrain(terrainType: ExtendedTerrainType): boolean {
-  return terrainType === TerrainTypeEnum.OCEAN;
-}
-
-/**
  * Utility function to check if a terrain type is traversable
  */
 export function isTraversableTerrain(terrainType: ExtendedTerrainType): boolean {

@@ -5,22 +5,15 @@
     {
       "idx": 0,
       "version": "7",
-      "when": 1754495189893,
-      "tag": "0000_legal_zodiak",
+      "when": 1754926658011,
+      "tag": "0000_productive_rocket_raccoon",
       "breakpoints": true
     },
     {
       "idx": 1,
       "version": "7",
-      "when": 1754497710881,
-      "tag": "0001_dapper_stryfe",
-      "breakpoints": true
-    },
-    {
-      "idx": 2,
-      "version": "7",
-      "when": 1754497889646,
-      "tag": "0002_optimal_franklin_storm",
+      "when": 1754926748119,
+      "tag": "0001_lean_jane_foster",
       "breakpoints": true
     }
   ]

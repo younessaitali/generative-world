@@ -6,6 +6,7 @@ import type {
   ResourceVein,
   ExtendedTerrainType,
 } from '#shared/types/world';
+import type { ExtractorSprite } from '~/composables/world/useExtractorManager';
 import { createServiceLogger } from '~/utils/logger';
 import { WORLD_CONFIG, type WorldConfig } from '~/config/world.config';
 import { getResourceColor } from '~/utils/resource-colors';
@@ -17,10 +18,20 @@ interface PixiChunk {
   resourceSprites: Sprite[];
 }
 
+interface PixiExtractorSprite {
+  sprite: Sprite;
+  animationContainer: Container;
+  pulseSprite: Sprite;
+  extractor: ExtractorSprite;
+  animationFn?: () => void;
+}
+
 export class PixiRendererService {
   private app: Application | null = null;
   private chunks = new Map<string, PixiChunk>();
   private chunkLayer: Container | null = null;
+  private extractorLayer: Container | null = null;
+  private extractorSprites = new Map<string, PixiExtractorSprite>();
   private worldContainer: Container | null = null;
   private container: HTMLElement | null = null;
 
@@ -28,6 +39,7 @@ export class PixiRendererService {
   private terrainTexturesDarkened = new Map<ExtendedTerrainType, Texture>();
   private unknownTexture: Texture | null = null;
   private resourceTextures = new Map<number, Texture>();
+  private extractorTextures = new Map<number, Texture>();
   private config: WorldConfig;
   private logger = createServiceLogger('PixiRendererService');
   private stats: RendererStats = {
@@ -65,6 +77,9 @@ export class PixiRendererService {
 
       this.chunkLayer = new Container();
       this.worldContainer.addChild(this.chunkLayer);
+
+      this.extractorLayer = new Container();
+      this.worldContainer.addChild(this.extractorLayer);
 
       await this.createTextures();
 
@@ -139,6 +154,58 @@ export class PixiRendererService {
     this.resourceTextures.set(color, texture);
 
     return texture;
+  }
+
+  private createExtractorTexture(color: number): Texture {
+    if (!this.app) throw new Error('PixiJS app not initialized');
+
+    if (this.extractorTextures.has(color)) {
+      return this.extractorTextures.get(color)!;
+    }
+
+    const cellSize = this.config.chunk.cellSize;
+    const extractorSize = Math.max(8, cellSize * 0.7);
+    const offset = (cellSize - extractorSize) / 2;
+
+    const graphics = new Graphics();
+
+    graphics.roundRect(offset, offset, extractorSize, extractorSize, 2);
+    graphics.fill(color);
+
+    const r = (color >> 16) & 0xff;
+    const g = (color >> 8) & 0xff;
+    const b = color & 0xff;
+    const factor = 0.6;
+    const borderColor =
+      (Math.floor(r * factor) << 16) | (Math.floor(g * factor) << 8) | Math.floor(b * factor);
+
+    graphics.roundRect(offset, offset, extractorSize, extractorSize, 2);
+    graphics.stroke({ color: borderColor, width: 2 });
+
+    const centerSize = extractorSize * 0.3;
+    const centerOffset = offset + (extractorSize - centerSize) / 2;
+    graphics.rect(centerOffset, centerOffset, centerSize, centerSize);
+    graphics.fill(0xffffff);
+
+    const texture = this.app.renderer.generateTexture(graphics);
+    this.extractorTextures.set(color, texture);
+
+    return texture;
+  }
+
+  private createExtractorPulseTexture(color: number): Texture {
+    if (!this.app) throw new Error('PixiJS app not initialized');
+
+    const cellSize = this.config.chunk.cellSize;
+    const pulseSize = cellSize * 1.2;
+    const offset = (cellSize - pulseSize) / 2;
+
+    const graphics = new Graphics();
+    graphics.circle(offset + pulseSize / 2, offset + pulseSize / 2, pulseSize / 2);
+    const alpha = 0.3;
+    graphics.fill({ color, alpha });
+
+    return this.app.renderer.generateTexture(graphics);
   }
 
   setCameraTransform(x: number, y: number, zoom: number): void {
@@ -300,6 +367,108 @@ export class PixiRendererService {
     this.logger.debug('Renderer resized', 'resize', { width, height });
   }
 
+  addExtractor(extractor: ExtractorSprite): void {
+    if (!this.extractorLayer || !this.app) {
+      this.logger.warn('Cannot add extractor - renderer not initialized', 'addExtractor');
+      return;
+    }
+
+    if (this.extractorSprites.has(extractor.id)) {
+      this.removeExtractor(extractor.id);
+    }
+
+    const animationContainer = new Container();
+
+    const pulseTexture = this.createExtractorPulseTexture(extractor.color);
+    const pulseSprite = new Sprite(pulseTexture);
+    pulseSprite.alpha = 0.5;
+    pulseSprite.anchor.set(0.5);
+
+    const extractorTexture = this.createExtractorTexture(extractor.color);
+    const sprite = new Sprite(extractorTexture);
+    sprite.anchor.set(0.5);
+
+    const worldX = extractor.x * this.config.chunk.cellSize + this.config.chunk.cellSize / 2;
+    const worldY = extractor.y * this.config.chunk.cellSize + this.config.chunk.cellSize / 2;
+
+    animationContainer.position.set(worldX, worldY);
+    animationContainer.addChild(pulseSprite);
+    animationContainer.addChild(sprite);
+
+    this.extractorLayer.addChild(animationContainer);
+
+    const pixiExtractor: PixiExtractorSprite = {
+      sprite,
+      animationContainer,
+      pulseSprite,
+      extractor,
+    };
+
+    this.extractorSprites.set(extractor.id, pixiExtractor);
+
+    this.updateExtractorAnimation(extractor.id);
+
+    this.logger.debug('Extractor added successfully', 'addExtractor', {
+      extractorId: extractor.id,
+      position: { x: extractor.x, y: extractor.y },
+      resourceType: extractor.resourceType,
+    });
+  }
+
+  removeExtractor(extractorId: string): void {
+    const pixiExtractor = this.extractorSprites.get(extractorId);
+    if (!pixiExtractor || !this.extractorLayer) return;
+
+    this.extractorLayer.removeChild(pixiExtractor.animationContainer);
+    pixiExtractor.animationContainer.destroy({ children: true });
+    this.extractorSprites.delete(extractorId);
+
+    this.logger.debug('Extractor removed successfully', 'removeExtractor', { extractorId });
+  }
+
+  updateExtractorStatus(extractorId: string, status: string): void {
+    const pixiExtractor = this.extractorSprites.get(extractorId);
+    if (!pixiExtractor) return;
+
+    pixiExtractor.extractor.status = status;
+    pixiExtractor.extractor.isAnimated = status === 'EXTRACTING';
+    this.updateExtractorAnimation(extractorId);
+  }
+
+  private updateExtractorAnimation(extractorId: string): void {
+    const pixiExtractor = this.extractorSprites.get(extractorId);
+    if (!pixiExtractor || !this.app) return;
+
+    if (pixiExtractor.animationFn) {
+      this.app.ticker.remove(pixiExtractor.animationFn);
+      pixiExtractor.animationFn = undefined;
+    }
+
+    if (pixiExtractor.extractor.isAnimated) {
+      let time = 0;
+      const animate = () => {
+        time += this.app!.ticker.deltaTime * 0.1;
+
+        const scale = 1 + Math.sin(time) * 0.1;
+        pixiExtractor.pulseSprite.scale.set(scale);
+
+        const alpha = 0.3 + Math.sin(time) * 0.2;
+        pixiExtractor.pulseSprite.alpha = alpha;
+
+        pixiExtractor.sprite.rotation = Math.sin(time * 0.5) * 0.1;
+      };
+
+      this.app.ticker.add(animate);
+      pixiExtractor.animationFn = animate;
+    }
+  }
+
+  clearAllExtractors(): void {
+    for (const [extractorId] of this.extractorSprites) {
+      this.removeExtractor(extractorId);
+    }
+  }
+
   private createChunk(
     coordinate: ChunkCoordinate,
     terrain: TerrainGrid,
@@ -432,6 +601,8 @@ export class PixiRendererService {
   destroy(): void {
     this.logger.info('Destroying PixiJS renderer', 'destroy');
 
+    this.clearAllExtractors();
+
     for (const [chunkKey] of this.chunks) {
       const coords = chunkKey.split(',').map(Number);
       const chunkX = coords[0];
@@ -450,11 +621,14 @@ export class PixiRendererService {
     }
 
     this.chunks.clear();
+    this.extractorSprites.clear();
     this.terrainTextures.clear();
     this.terrainTexturesDarkened.clear();
     this.resourceTextures.clear();
+    this.extractorTextures.clear();
     this.worldContainer = null;
     this.chunkLayer = null;
+    this.extractorLayer = null;
     this.container = null;
     this.unknownTexture = null;
 

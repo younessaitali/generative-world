@@ -1,11 +1,21 @@
 import { z } from 'zod/v4';
 import { createError } from 'h3';
 import defineValidatedEventHandler from '~~/server/utils/define-validated-event-handler';
-import { generateChunkResources } from '~~/server/utils/resource-generator';
-import type { ResourceVein, ScanLevel } from '#shared/types/world';
+import { ensureChunksHavePersistedVeins } from '~~/server/utils/resource-generator';
+import type {
+  ResourceVein,
+  ScanLevel,
+  ResourceType,
+  ResourceGrade,
+  ClimateType,
+  ExtendedTerrainType,
+  FormationType,
+  EnvironmentalHazard,
+  ProximityEffects,
+} from '#shared/types/world';
 import { ScanLevel as ScanLevelEnum } from '#shared/types/world';
 import { db } from '~~/server/database/connection';
-import { playerScans } from '~~/server/database/schema';
+import { playerScans, resourceVeins } from '~~/server/database/schema';
 import { sql } from 'drizzle-orm';
 
 const scanBodySchema = z.object({
@@ -31,57 +41,115 @@ interface ScanResult {
   message?: string;
 }
 
-function findNearbyResource(
+async function findNearbyResourceInDatabase(
   targetX: number,
   targetY: number,
   radius: number,
+  worldId: string,
   chunkSize: number,
-): ResourceVein | null {
-  const coordsToCheck: Array<{ x: number; y: number; distance: number }> = [];
+): Promise<ResourceVein | null> {
+  const chunksToCheck: Array<{ chunkX: number; chunkY: number }> = [];
+  for (let dx = -radius; dx <= radius; dx++) {
+    for (let dy = -radius; dy <= radius; dy++) {
+      const checkX = targetX + dx;
+      const checkY = targetY + dy;
+      const chunkX = Math.floor(checkX / chunkSize);
+      const chunkY = Math.floor(checkY / chunkSize);
 
-  coordsToCheck.push({ x: targetX, y: targetY, distance: 0 });
-
-  // Generate coordinates in expanding rings around the target
-  for (let r = 1; r <= radius; r++) {
-    for (let dx = -r; dx <= r; dx++) {
-      for (let dy = -r; dy <= r; dy++) {
-        // Skip if not on the edge of the current ring
-        if (Math.abs(dx) !== r && Math.abs(dy) !== r) continue;
-
-        const x = Math.round(targetX + dx);
-        const y = Math.round(targetY + dy);
-        const distance = Math.sqrt(dx * dx + dy * dy);
-
-        if (distance <= radius) {
-          coordsToCheck.push({ x, y, distance });
-        }
+      // Add unique chunks
+      if (!chunksToCheck.some((c) => c.chunkX === chunkX && c.chunkY === chunkY)) {
+        chunksToCheck.push({ chunkX, chunkY });
       }
     }
   }
 
-  coordsToCheck.sort((a, b) => a.distance - b.distance);
+  await ensureChunksHavePersistedVeins(chunksToCheck, worldId, chunkSize);
 
-  for (const coord of coordsToCheck) {
-    const chunkX = Math.floor(coord.x / chunkSize);
-    const chunkY = Math.floor(coord.y / chunkSize);
+  const queryPoint = sql`ST_SetSRID(ST_MakePoint(${targetX}, ${targetY}), 4326)`;
 
-    try {
-      const chunkResources = generateChunkResources(chunkX, chunkY, chunkSize);
-      const resourceVein = chunkResources.find(
-        (vein: ResourceVein) =>
-          vein.location.worldX === coord.x && vein.location.worldY === coord.y,
-      );
+  const nearbyVeins = await db
+    .select({
+      id: resourceVeins.id,
+      resourceType: resourceVeins.resourceType,
+      centerX: resourceVeins.centerX,
+      centerY: resourceVeins.centerY,
+      radius: resourceVeins.radius,
+      density: resourceVeins.density,
+      quality: resourceVeins.quality,
+      depth: resourceVeins.depth,
+      isExhausted: resourceVeins.isExhausted,
+      extractedAmount: resourceVeins.extractedAmount,
+      distance: sql`ST_Distance(${resourceVeins.centerPoint}, ${queryPoint})`.as('distance'),
+    })
+    .from(resourceVeins)
+    .where(
+      sql`ST_DWithin(${resourceVeins.centerPoint}, ${queryPoint}, ${radius})
+          AND ${resourceVeins.worldId} = ${worldId}`,
+    )
+    .orderBy(sql`ST_Distance(${resourceVeins.centerPoint}, ${queryPoint})`)
+    .limit(1);
 
-      if (resourceVein) {
-        return resourceVein;
-      }
-    } catch (error) {
-      // Continue searching if this chunk fails
-      console.warn(`Failed to generate chunk (${chunkX}, ${chunkY}):`, error);
-    }
+  if (nearbyVeins.length === 0) {
+    return null;
   }
 
-  return null;
+  const vein = nearbyVeins[0];
+
+  return {
+    id: vein.id as string,
+    type: vein.resourceType as ResourceType,
+    location: {
+      worldX: vein.centerX,
+      worldY: vein.centerY,
+      chunkX: Math.floor(vein.centerX / chunkSize),
+      chunkY: Math.floor(vein.centerY / chunkSize),
+      cellX: vein.centerX % chunkSize,
+      cellY: vein.centerY % chunkSize,
+    },
+    deposit: {
+      size: Math.PI * vein.radius * vein.radius,
+      richness: vein.density,
+      depth: vein.depth || 1,
+      accessibility: 0.8,
+      formation: 'SEDIMENTARY' as FormationType,
+    },
+    quality: {
+      purity: vein.quality,
+      grade:
+        vein.quality > 0.8
+          ? ('ULTRA' as ResourceGrade)
+          : vein.quality > 0.6
+            ? ('HIGH' as ResourceGrade)
+            : ('MEDIUM' as ResourceGrade),
+      complexity: 0.5,
+      yield: vein.quality * vein.density,
+    },
+    discovery: {
+      isDiscovered: true,
+      confidence: 0.9,
+      scanLevel: ScanLevelEnum.SURFACE,
+      discoveredAt: new Date().toISOString(),
+    },
+    extraction: {
+      totalExtracted: vein.extractedAmount,
+      remainingReserves: Math.PI * vein.radius * vein.radius * vein.density - vein.extractedAmount,
+      depletion: vein.extractedAmount / (Math.PI * vein.radius * vein.radius * vein.density),
+      lastExtracted: new Date().toISOString(),
+      extractionRate: 1.0,
+    },
+    environment: {
+      terrain: 'PLAINS' as ExtendedTerrainType,
+      climate: 'TEMPERATE' as ClimateType,
+      hazards: [] as EnvironmentalHazard[],
+      proximity: {} as ProximityEffects,
+    },
+    metadata: {
+      generated: new Date().toISOString(),
+      seed: Math.floor(vein.centerX * 1000 + vein.centerY),
+      version: '1.0',
+      tags: [],
+    },
+  };
 }
 
 /**
@@ -116,7 +184,13 @@ export default defineValidatedEventHandler(
     const cellY = ((worldY % chunkSize) + chunkSize) % chunkSize;
 
     try {
-      const resourceVein = findNearbyResource(worldX, worldY, searchRadius, chunkSize);
+      const resourceVein = await findNearbyResourceInDatabase(
+        worldX,
+        worldY,
+        searchRadius,
+        player.worldId,
+        chunkSize,
+      );
 
       const scanResult: ScanResult = {
         success: true,
@@ -137,7 +211,7 @@ export default defineValidatedEventHandler(
         await db.insert(playerScans).values({
           sessionId: player.sessionId,
           scanCenter: sql`ST_SetSRID(ST_MakePoint(${worldX}, ${worldY}), 4326)`,
-          scanArea: sql`ST_SetSRID(ST_MakePoint(${worldX}, ${worldY}), 4326)`,
+          scanArea: sql`ST_Buffer(ST_SetSRID(ST_MakePoint(${worldX}, ${worldY}), 4326), ${searchRadius})`,
           scanType: 'resource',
           results: {
             success: true,

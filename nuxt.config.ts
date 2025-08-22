@@ -7,7 +7,7 @@ export default defineNuxtConfig({
     '#client-services': './app/services',
     '#api-services': './server/api',
   },
-
+  css: ['~/assets/css/main.css'],
   nitro: {
     experimental: {
       websocket: true,

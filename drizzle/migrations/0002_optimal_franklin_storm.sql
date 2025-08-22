@@ -1,1 +1,0 @@
-ALTER TABLE "player_scans" ADD COLUMN "scan_type" "scan_type" NOT NULL;

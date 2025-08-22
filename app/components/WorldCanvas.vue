@@ -2,6 +2,9 @@
 import { useTemplateRef, onMounted, nextTick } from '#imports';
 import { useWorldManager } from '~/composables/world/useWorldManager';
 import { useScanInteraction } from '~/composables/world/useScanInteraction';
+import { useExtractorManager } from '~/composables/world/useExtractorManager';
+import { useExtractorLoader } from '~/composables/world/useExtractorLoader';
+import type { ExtractorPlacement } from '~/composables/world/useExtractorPlacement';
 
 const canvasContainer = useTemplateRef<HTMLElement>('canvasContainer');
 
@@ -26,6 +29,9 @@ const scanInteraction = import.meta.client
     })
   : null;
 
+const extractorManager = import.meta.client ? useExtractorManager() : null;
+const extractorLoader = import.meta.client ? useExtractorLoader() : null;
+
 onMounted(async () => {
   if (!worldManager) return;
 
@@ -41,6 +47,18 @@ onMounted(async () => {
 
     if (canvasContainer.value) {
       worldManager.resize(canvasContainer.value.clientWidth, canvasContainer.value.clientHeight);
+    }
+
+    if (extractorLoader && extractorManager) {
+      const existingExtractors = await extractorLoader.loadExtractors();
+      for (const extractor of existingExtractors) {
+        extractorManager.addExtractor(extractor);
+        const extractorSprite = extractorManager.getExtractorAt(extractor.x, extractor.y);
+        if (extractorSprite) {
+          worldManager.renderer?.addExtractor(extractorSprite);
+        }
+      }
+      console.log(`Loaded ${existingExtractors.length} existing extractors`);
     }
 
     console.log('World canvas initialized successfully');
@@ -60,11 +78,27 @@ if (import.meta.dev && import.meta.client && worldManager) {
 const handleCloseScanResult = () => {
   scanInteraction?.clearScanResult();
 };
+
+const handleExtractorPlaced = (extractor: ExtractorPlacement) => {
+  if (!extractorManager || !worldManager) return;
+
+  extractorManager.addExtractor(extractor);
+
+  const extractorSprite = extractorManager.getExtractorAt(extractor.x, extractor.y);
+  if (extractorSprite) {
+    worldManager.renderer?.addExtractor(extractorSprite);
+  }
+
+  scanInteraction?.clearScanResult();
+};
 </script>
 
 <template>
   <ClientOnly>
-    <div ref="canvasContainer" class="world-canvas-container">
+    <div
+      ref="canvasContainer"
+      class="relative w-full h-full select-none cursor-grab active:cursor-grabbing overflow-hidden"
+    >
       <!-- Loading overlay -->
       <div v-if="worldManager?.isLoading?.value" class="loading-overlay">
         <div class="loading-spinner" />
@@ -87,6 +121,7 @@ const handleCloseScanResult = () => {
         :is-scanning="scanInteraction.isScanning?.value"
         :scan-error="scanInteraction.scanError?.value"
         @close="handleCloseScanResult"
+        @extractor-placed="handleExtractorPlaced"
       />
 
       <!-- Instructions overlay -->
@@ -102,7 +137,7 @@ const handleCloseScanResult = () => {
       </div>
     </div>
     <template #fallback>
-      <div class="world-canvas-container">
+      <div class="relative w-full h-full">
         <div class="loading-overlay">
           <div class="loading-spinner" />
           <p>Loading world canvas...</p>
@@ -113,26 +148,7 @@ const handleCloseScanResult = () => {
 </template>
 
 <style scoped>
-.world-canvas-container {
-  position: fixed;
-  top: 5vh;
-  left: 5vh;
-  width: 90vw;
-  height: 90vh;
-  margin: 0;
-  padding: 0;
-  z-index: 1;
-  user-select: none;
-  cursor: grab;
-  border: solid 1px red;
-  overflow: hidden;
-}
-
-.world-canvas-container:active {
-  cursor: grabbing;
-}
-
-.world-canvas-container :deep(canvas) {
+:deep(canvas) {
   display: block;
   width: 100%;
   height: 100%;

@@ -1,6 +1,6 @@
 {
-  "id": "549b1f45-7e2a-4394-840e-123eda501a1e",
-  "prevId": "a4a38f0a-92ef-4758-8133-b51c276c8c2d",
+  "id": "85a72993-bd81-46f8-86f1-85b3b1841404",
+  "prevId": "afa9e1ee-ab56-4365-82aa-19cacff7818b",
   "version": "7",
   "dialect": "postgresql",
   "tables": {
@@ -43,7 +43,7 @@
           "name": "position",
           "type": "geometry(point)",
           "primaryKey": false,
-          "notNull": false
+          "notNull": true
         },
         "resource_type": {
           "name": "resource_type",
@@ -242,11 +242,18 @@
           "name": "scan_center",
           "type": "geometry(point)",
           "primaryKey": false,
-          "notNull": false
+          "notNull": true
         },
         "scan_area": {
           "name": "scan_area",
           "type": "geometry(point)",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "scan_type": {
+          "name": "scan_type",
+          "type": "scan_type",
+          "typeSchema": "public",
           "primaryKey": false,
           "notNull": true
         },
@@ -644,13 +651,13 @@
           "name": "center_point",
           "type": "geometry(point)",
           "primaryKey": false,
-          "notNull": false
+          "notNull": true
         },
         "extraction_area": {
           "name": "extraction_area",
           "type": "geometry(point)",
           "primaryKey": false,
-          "notNull": false
+          "notNull": true
         },
         "density": {
           "name": "density",
@@ -798,6 +805,112 @@
       },
       "compositePrimaryKeys": {},
       "uniqueConstraints": {},
+      "policies": {},
+      "checkConstraints": {},
+      "isRLSEnabled": false
+    },
+    "public.world_chunks": {
+      "name": "world_chunks",
+      "schema": "",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "uuid",
+          "primaryKey": true,
+          "notNull": true,
+          "default": "gen_random_uuid()"
+        },
+        "world_id": {
+          "name": "world_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "chunk_x": {
+          "name": "chunk_x",
+          "type": "real",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "chunk_y": {
+          "name": "chunk_y",
+          "type": "real",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "activated_at": {
+          "name": "activated_at",
+          "type": "timestamp",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        }
+      },
+      "indexes": {
+        "world_chunks_world_id_idx": {
+          "name": "world_chunks_world_id_idx",
+          "columns": [
+            {
+              "expression": "world_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        },
+        "world_chunks_coords_idx": {
+          "name": "world_chunks_coords_idx",
+          "columns": [
+            {
+              "expression": "chunk_x",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "chunk_y",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        }
+      },
+      "foreignKeys": {
+        "world_chunks_world_id_worlds_id_fk": {
+          "name": "world_chunks_world_id_worlds_id_fk",
+          "tableFrom": "world_chunks",
+          "tableTo": "worlds",
+          "columnsFrom": [
+            "world_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {
+        "world_chunk_coords_unique": {
+          "name": "world_chunk_coords_unique",
+          "nullsNotDistinct": false,
+          "columns": [
+            "world_id",
+            "chunk_x",
+            "chunk_y"
+          ]
+        }
+      },
       "policies": {},
       "checkConstraints": {},
       "isRLSEnabled": false

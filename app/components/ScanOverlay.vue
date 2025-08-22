@@ -1,15 +1,26 @@
 <script setup lang="ts">
+import type { DeepReadonly } from 'vue';
 import type { ScanResult } from '~/composables/world/useWorldScan';
+import {
+  useExtractorPlacement,
+  type ExtractorPlacement,
+} from '~/composables/world/useExtractorPlacement';
+import { useExtractorManager } from '~/composables/world/useExtractorManager';
+import type { ResourceType } from '#shared/types/world';
 
-defineProps<{
-  scanResult: ScanResult | null;
+const props = defineProps<{
+  scanResult: ScanResult | DeepReadonly<ScanResult> | null;
   isScanning: boolean;
   scanError: { message: string; code?: string } | null;
 }>();
 
-defineEmits<{
+const emit = defineEmits<{
   close: [];
+  extractorPlaced: [extractor: ExtractorPlacement];
 }>();
+
+const { placeExtractor, isPlacing, placementError } = useExtractorPlacement();
+const { addExtractor, getExtractorAt } = useExtractorManager();
 
 const formatResourceType = (type: string) => {
   return type.toLowerCase().replace(/_/g, ' ');
@@ -29,6 +40,23 @@ const getResourceColor = (type: string) => {
     ZINC: '#7F7F7F',
   };
   return colors[type] || '#888';
+};
+
+const handlePlaceExtractor = async (resourceType: ResourceType) => {
+  if (!props.scanResult?.discovered) return;
+
+  const { x, y } = props.scanResult;
+  const existingExtractor = getExtractorAt(Math.round(x), Math.round(y));
+  if (existingExtractor) {
+    // todo show notification
+    return;
+  }
+
+  const placed = await placeExtractor(x, y, resourceType);
+  if (placed) {
+    addExtractor(placed);
+    emit('extractorPlaced', placed);
+  }
 };
 </script>
 
@@ -90,6 +118,37 @@ const getResourceColor = (type: string) => {
             <div class="detail-item">
               <span class="detail-label">Formation:</span>
               <span class="detail-value">{{ scanResult.discovered.deposit.formation }}</span>
+            </div>
+          </div>
+
+          <!-- Place Extractor Button -->
+          <div class="extractor-placement">
+            <button
+              class="place-extractor-btn"
+              :disabled="
+                isPlacing || !!getExtractorAt(Math.round(scanResult.x), Math.round(scanResult.y))
+              "
+              :style="{
+                borderColor: getResourceColor(scanResult.discovered.type),
+                backgroundColor: `${getResourceColor(scanResult.discovered.type)}20`,
+              }"
+              @click="handlePlaceExtractor(scanResult.discovered.type)"
+            >
+              <span v-if="isPlacing" class="placing-indicator">
+                <div class="placing-spinner"></div>
+                Placing...
+              </span>
+              <span v-else-if="getExtractorAt(Math.round(scanResult.x), Math.round(scanResult.y))">
+                Extractor Exists
+              </span>
+              <span v-else>
+                Place {{ formatResourceType(scanResult.discovered.type) }} Extractor
+              </span>
+            </button>
+
+            <!-- Show placement error if any -->
+            <div v-if="placementError" class="placement-error">
+              {{ placementError.message }}
             </div>
           </div>
         </div>
@@ -288,5 +347,69 @@ const getResourceColor = (type: string) => {
 
 .scan-error h3 {
   color: #ef4444;
+}
+
+/* Extractor Placement Styles */
+.extractor-placement {
+  margin-top: 1rem;
+  padding-top: 0.75rem;
+  border-top: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.place-extractor-btn {
+  width: 100%;
+  padding: 0.75rem 1rem;
+  background: rgba(59, 130, 246, 0.1);
+  border: 2px solid #3b82f6;
+  border-radius: 6px;
+  color: white;
+  font-weight: 600;
+  font-size: 0.9rem;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+}
+
+.place-extractor-btn:hover:not(:disabled) {
+  background: rgba(59, 130, 246, 0.2);
+  border-color: #60a5fa;
+  transform: translateY(-1px);
+  box-shadow: 0 4px 8px rgba(59, 130, 246, 0.2);
+}
+
+.place-extractor-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+  transform: none;
+  box-shadow: none;
+}
+
+.placing-indicator {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.placing-spinner {
+  width: 16px;
+  height: 16px;
+  border: 2px solid rgba(255, 255, 255, 0.3);
+  border-top: 2px solid white;
+  border-radius: 50%;
+  animation: spin 1s linear infinite;
+}
+
+.placement-error {
+  margin-top: 0.5rem;
+  padding: 0.5rem;
+  background: rgba(239, 68, 68, 0.1);
+  border: 1px solid #ef4444;
+  border-radius: 4px;
+  color: #ef4444;
+  font-size: 0.85rem;
+  text-align: center;
 }
 </style>
