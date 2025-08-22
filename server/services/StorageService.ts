@@ -109,13 +109,9 @@ export class StorageService {
       const data = await this.streamToString(response.Body.transformToWebStream());
       const chunkData = JSON.parse(data);
 
-      const duration = Date.now() - start;
-      const sizeKB = Math.round(data.length / 1024);
-
       return chunkData;
     } catch (error) {
       if (this.isNotFoundError(error)) {
-        const duration = Date.now() - performance.now();
         return null;
       }
 
@@ -149,8 +145,6 @@ export class StorageService {
 
       await this.s3Client.send(command);
 
-      const duration = Date.now() - start;
-      const sizeKB = Math.round(serializedData.length / 1024);
     } catch (error) {
       console.error('❌ Error writing to MinIO storage:', error);
     }
@@ -189,7 +183,6 @@ export class StorageService {
         MaxKeys: 1000, // Process in batches
       });
 
-      let deletedCount = 0;
       let continuationToken: string | undefined;
 
       do {
@@ -213,8 +206,7 @@ export class StorageService {
             return 0;
           });
 
-          const results = await Promise.all(deletePromises);
-          deletedCount += results.reduce((sum: number, count: number) => sum + count, 0);
+          await Promise.all(deletePromises);
         }
 
         continuationToken = listResponse.NextContinuationToken;

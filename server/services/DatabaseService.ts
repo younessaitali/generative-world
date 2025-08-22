@@ -29,7 +29,11 @@ export class DatabaseService {
     return db;
   }
 
-  async getResourceVeins(centerX?: number, centerY?: number, radius?: number): Promise<DbResourceVein[]> {
+  async getResourceVeins(
+    centerX?: number,
+    centerY?: number,
+    radius?: number,
+  ): Promise<DbResourceVein[]> {
     return executeQuery(async () => {
       if (centerX !== undefined && centerY !== undefined && radius !== undefined) {
         return await this.database
@@ -38,8 +42,8 @@ export class DatabaseService {
           .where(
             and(
               sql`abs(${resourceVeins.centerX} - ${centerX}) < ${radius}`,
-              sql`abs(${resourceVeins.centerY} - ${centerY}) < ${radius}`
-            )
+              sql`abs(${resourceVeins.centerY} - ${centerY}) < ${radius}`,
+            ),
           );
       } else {
         // Return all resource veins

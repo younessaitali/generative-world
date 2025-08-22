@@ -62,10 +62,20 @@ export function useExtractorPlacement() {
 
       lastPlacedExtractor.value = placement;
       return placement;
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error('Extractor placement failed:', error);
       placementError.value = {
-        message: error?.data?.message || error?.message || 'Failed to place extractor',
+        message:
+          typeof error === 'object' &&
+          error !== null &&
+          'data' in error &&
+          typeof (error as Record<string, unknown>).data === 'object' &&
+          (error as { data?: { message?: unknown } }).data?.message &&
+          typeof (error as { data?: { message?: unknown } }).data?.message === 'string'
+            ? ((error as { data?: { message?: string } }).data!.message as string)
+            : error instanceof Error
+              ? error.message
+              : 'Failed to place extractor',
         code: 'PLACEMENT_FAILED',
       };
       return null;

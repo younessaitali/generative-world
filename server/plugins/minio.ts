@@ -1,7 +1,8 @@
+import { logger } from '#shared/utils/logger';
 import { getStorageService } from '~~/server/services/StorageService';
 
 export default defineNitroPlugin(async (nitroApp) => {
-  console.log('🪣 Initializing MinIO Storage Service...');
+  logger.info('Initializing MinIO Storage Service...', { context: 'minio-plugin' });
 
   try {
     // Initialize storage service singleton
@@ -11,16 +12,23 @@ export default defineNitroPlugin(async (nitroApp) => {
     await new Promise((resolve) => setTimeout(resolve, 100));
 
     if (storageService.isAvailable()) {
-      console.log('✅ MinIO Storage Service initialized successfully');
+      logger.info('MinIO Storage Service initialized successfully', { context: 'minio-plugin' });
     } else {
-      console.warn('⚠️ MinIO Storage Service not available - continuing without cold storage');
+      logger.warn('MinIO Storage Service not available - continuing without cold storage', {
+        context: 'minio-plugin',
+      });
     }
 
     nitroApp.hooks.hook('beforeResponse', () => {
       // Todo Attach storage service to the request context
     });
   } catch (error) {
-    console.error('❌ Failed to initialize MinIO Storage Service:', error);
-    console.warn('⚠️ Cold storage will be unavailable - falling back to cache/database only');
+    logger.error('Failed to initialize MinIO Storage Service', {
+      context: 'minio-plugin',
+      error: (error as Error).message,
+    });
+    logger.warn('Cold storage will be unavailable - falling back to cache/database only', {
+      context: 'minio-plugin',
+    });
   }
 });

@@ -1,4 +1,4 @@
-import { ref, computed, readonly, watch } from '#imports';
+import { ref, computed, readonly } from '#imports';
 import { defineStore } from 'pinia';
 import { useLocalStorage } from '@vueuse/core';
 import { fetchPlayerStatus } from '~/api/player';

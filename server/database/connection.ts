@@ -3,6 +3,7 @@ import { Pool, type PoolConfig, type PoolClient } from 'pg';
 import * as schema from './schema';
 import { executeWithPolicy } from './policies';
 import { dbMonitorService } from './monitor';
+import { logger } from '#shared/utils/logger';
 
 function getPoolConfig(): PoolConfig {
   const isProduction = process.env.NODE_ENV === 'production';
@@ -39,12 +40,15 @@ function getPoolConfig(): PoolConfig {
 }
 
 const poolConfig = getPoolConfig();
-console.log(`🔧 Database pool configuration:`, {
-  max: poolConfig.max,
-  min: poolConfig.min,
-  idleTimeout: poolConfig.idleTimeoutMillis,
-  connectionTimeout: poolConfig.connectionTimeoutMillis,
-  environment: process.env.NODE_ENV || 'development',
+logger.info(`Database pool configuration`, {
+  context: 'database',
+  metadata: {
+    max: poolConfig.max,
+    min: poolConfig.min,
+    idleTimeout: poolConfig.idleTimeoutMillis,
+    connectionTimeout: poolConfig.connectionTimeoutMillis,
+    environment: process.env.NODE_ENV || 'development',
+  },
 });
 
 const pool = new Pool(poolConfig);
@@ -60,12 +64,15 @@ export { pool };
 
 export async function closeConnection(): Promise<void> {
   try {
-    console.log('🔌 Closing database connections...');
+    logger.info('Closing database connections...', { context: 'database' });
     dbMonitorService.stop();
     await pool.end();
-    console.log('✅ Database connections closed successfully');
+    logger.info('Database connections closed successfully', { context: 'database' });
   } catch (error) {
-    console.error('❌ Error closing database connections:', (error as Error).message);
+    logger.error('Error closing database connections', {
+      context: 'database',
+      error: (error as Error).message,
+    });
     throw error;
   }
 }
@@ -77,7 +84,7 @@ export async function testConnection(): Promise<boolean> {
     try {
       await client.query('SELECT 1 as connection_test');
       client.release();
-      console.log('✅ Database connection test successful');
+      logger.info('Database connection test successful', { context: 'database' });
       return true;
     } catch (error) {
       client.release();
@@ -88,7 +95,9 @@ export async function testConnection(): Promise<boolean> {
 
 export async function warmUpPool(): Promise<void> {
   const minConnections = Number(process.env.DB_POOL_MIN) || 5;
-  console.log(`🔥 Warming up connection pool with ${minConnections} connections...`);
+  logger.info(`Warming up connection pool with ${minConnections} connections...`, {
+    context: 'database',
+  });
 
   const connections: PoolClient[] = [];
 
@@ -103,13 +112,18 @@ export async function warmUpPool(): Promise<void> {
       client.release();
     }
 
-    console.log(`✅ Connection pool warmed up with ${minConnections} connections`);
+    logger.info(`Connection pool warmed up with ${minConnections} connections`, {
+      context: 'database',
+    });
   } catch (error) {
     for (const client of connections) {
       try {
         client.release();
       } catch (releaseError) {
-        console.error('❌ Error releasing client:', (releaseError as Error).message);
+        logger.error('Error releasing client', {
+          context: 'database',
+          error: (releaseError as Error).message,
+        });
       }
       throw error;
     }
@@ -125,7 +139,7 @@ export async function getConnection() {
     dbMonitorService.recordQuery(duration, true);
 
     if (duration > 1000) {
-      console.warn(`🐌 Slow connection acquisition: ${duration}ms`);
+      logger.warn(`Slow connection acquisition: ${duration}ms`, { context: 'database' });
     }
 
     return client;
@@ -138,17 +152,27 @@ export async function executeQuery<T>(
 ): Promise<T> {
   return executeWithPolicy(async () => {
     const start = Date.now();
+    logger.info(`Executing query`, { context: `db:${context}` });
 
     try {
       const result = await queryFn();
       const duration = Date.now() - start;
 
       dbMonitorService.recordQuery(duration, true);
+      logger.info(`Query successful`, {
+        context: `db:${context}`,
+        metadata: { duration: `${duration}ms` },
+      });
 
       return result;
     } catch (error) {
       const duration = Date.now() - start;
       dbMonitorService.recordQuery(duration, false);
+      logger.error(`Query failed`, {
+        context: `db:${context}`,
+        error: (error as Error).message,
+        metadata: { duration: `${duration}ms` },
+      });
       throw error;
     }
   });

@@ -1,4 +1,4 @@
-import { defineEventHandler, getCookie, setCookie, createError } from 'h3';
+import { defineEventHandler, getCookie, setCookie } from 'h3';
 import { eq } from 'drizzle-orm';
 import { db } from '~~/server/database/connection';
 import { players, worlds } from '~~/server/database/schema';

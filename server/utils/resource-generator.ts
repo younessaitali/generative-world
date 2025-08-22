@@ -289,7 +289,7 @@ function generateResourceVein(
   chunkY: number,
   cellX: number,
   cellY: number,
-  densityValue: number,
+  _densityValue: number,
 ): ResourceVein {
   const config = RESOURCE_CONFIGS[resourceType];
   const id = uuidv4();

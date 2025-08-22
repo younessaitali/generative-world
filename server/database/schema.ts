@@ -237,7 +237,7 @@ export const playersRelations = relations(players, ({ one, many }) => ({
   resourceClaims: many(resourceClaims),
 }));
 
-export const resourceVeinsRelations = relations(resourceVeins, ({ one, many }) => ({
+export const resourceVeinsRelations = relations(resourceVeins, ({ one, many: _many }) => ({
   resourceClaim: one(resourceClaims),
 }));
 

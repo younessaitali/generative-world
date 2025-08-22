@@ -7,7 +7,7 @@ import type {
   ExtendedTerrainType,
 } from '#shared/types/world';
 import type { ExtractorSprite } from '~/composables/world/useExtractorManager';
-import { createServiceLogger } from '~/utils/logger';
+import { createServiceLogger } from '#shared/utils/logger';
 import { WORLD_CONFIG, type WorldConfig } from '~/config/world.config';
 import { getResourceColor } from '~/utils/resource-colors';
 import { getTerrainPixiColor, getTerrainPixiColorDarkened } from '~/utils/terrain-colors';

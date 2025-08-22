@@ -1,12 +1,13 @@
 import { getCacheService, closeCacheService } from '../services/CacheService';
+import { logger } from '#shared/utils/logger';
 
 export default defineNitroPlugin(async (nitro) => {
   getCacheService();
-  console.log('🚀 Redis cache service initialized');
+  logger.info('Redis cache service initialized', { context: 'redis-plugin' });
 
   // Handle graceful shutdown
   nitro.hooks.hook('close', async () => {
-    console.log('🔌 Shutting down Redis cache service...');
+    logger.info('Shutting down Redis cache service...', { context: 'redis-plugin' });
     await closeCacheService();
   });
 });

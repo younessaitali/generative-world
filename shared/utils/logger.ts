@@ -9,6 +9,8 @@ export interface LogContext {
   component?: string;
   service?: string;
   method?: string;
+  context?: string;
+  error?: string;
   metadata?: Record<string, unknown>;
 }
 

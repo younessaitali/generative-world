@@ -3,6 +3,7 @@
  */
 
 import type { Pool } from 'pg';
+import { logger } from '#shared/utils/logger';
 
 interface PoolMetrics {
   totalConnections: number;
@@ -52,7 +53,7 @@ export class DatabaseMonitorService {
     if (!this.pool) return;
 
     this.pool.on('connect', () => {
-      console.log('🔗 New database connection established');
+      logger.info('New database connection established', { context: 'db-monitor' });
     });
 
     this.pool.on('acquire', () => {
@@ -60,11 +61,11 @@ export class DatabaseMonitorService {
     });
 
     this.pool.on('remove', () => {
-      console.log('🔌 Database connection removed from pool');
+      logger.info('Database connection removed from pool', { context: 'db-monitor' });
     });
 
     this.pool.on('error', (error) => {
-      console.error('💥 Database pool error:', error.message);
+      logger.error('Database pool error', { context: 'db-monitor', error: error.message });
       this.recordError(error.message);
       this.isHealthy = false;
     });
@@ -84,8 +85,9 @@ export class DatabaseMonitorService {
       this.performHealthCheck();
     }, healthCheckInterval);
 
-    console.log(
-      `📊 Database monitoring started (metrics: ${monitorInterval}ms, health: ${healthCheckInterval}ms)`,
+    logger.info(
+      `Database monitoring started (metrics: ${monitorInterval}ms, health: ${healthCheckInterval}ms)`,
+      { context: 'db-monitor' },
     );
   }
 
@@ -108,12 +110,15 @@ export class DatabaseMonitorService {
       this.lastHealthCheck = Date.now();
 
       if (duration > 1000) {
-        console.warn(`🐌 Slow health check: ${duration}ms`);
+        logger.warn(`Slow health check: ${duration}ms`, { context: 'db-monitor' });
       }
 
       return true;
     } catch (error) {
-      console.error('💔 Database health check failed:', (error as Error).message);
+      logger.error('Database health check failed', {
+        context: 'db-monitor',
+        error: (error as Error).message,
+      });
       this.recordError((error as Error).message);
       this.isHealthy = false;
       return false;
@@ -186,19 +191,25 @@ export class DatabaseMonitorService {
       const logLevel = process.env.DB_POOL_LOG_LEVEL || 'info';
 
       if (logLevel === 'debug' || this.shouldLogWarning(status)) {
-        console.log('📊 Database Pool Status:', {
-          connections: `${status.pool.totalConnections}/${status.pool.maxConnections}`,
-          idle: status.pool.idleConnections,
-          waiting: status.pool.waitingClients,
-          utilization: `${status.pool.utilization.toFixed(1)}%`,
-          queries: status.pool.totalQueries,
-          avgTime: `${status.performance.averageQueryTime}ms`,
-          errorRate: `${status.performance.errorRate}%`,
-          healthy: status.pool.healthy,
+        logger.info('Database Pool Status', {
+          context: 'db-monitor',
+          metadata: {
+            connections: `${status.pool.totalConnections}/${status.pool.maxConnections}`,
+            idle: status.pool.idleConnections,
+            waiting: status.pool.waitingClients,
+            utilization: `${status.pool.utilization.toFixed(1)}%`,
+            queries: status.pool.totalQueries,
+            avgTime: `${status.performance.averageQueryTime}ms`,
+            errorRate: `${status.performance.errorRate}%`,
+            healthy: status.pool.healthy,
+          },
         });
       }
     } catch (error) {
-      console.error('Failed to log pool metrics:', (error as Error).message);
+      logger.error('Failed to log pool metrics', {
+        context: 'db-monitor',
+        error: (error as Error).message,
+      });
     }
   }
 
@@ -222,7 +233,7 @@ export class DatabaseMonitorService {
       this.healthCheckInterval = null;
     }
 
-    console.log('📊 Database monitoring stopped');
+    logger.info('Database monitoring stopped', { context: 'db-monitor' });
   }
 
   isPoolHealthy(): boolean {
