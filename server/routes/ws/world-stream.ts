@@ -106,10 +106,6 @@ async function handleViewportUpdate(
 
   const prefetchChunks = calculatePrefetchRing(visibleChunks);
 
-  console.log(
-    `Streaming ${visibleChunks.length} viewport chunks + ${prefetchChunks.length} prefetch chunks for update ${requestId}`,
-  );
-
   try {
     // Sort chunks by distance from camera center for better perceived performance
     const sortedChunks = visibleChunks.sort((a, b) => {

@@ -5,9 +5,39 @@ export class CacheService {
   private redis: Redis | null = null;
   private isConnected = false;
   private connectionAttempted = false;
+  private shouldLog: boolean;
 
-  constructor() {
+  constructor(options?: { enableLogs?: boolean }) {
+    // Default to env CACHE_LOGS (true/false), fallback to true to preserve existing behavior
+    const envValue = process.env.CACHE_LOGS?.toLowerCase();
+    const envEnabled = envValue === 'true' || envValue === '1';
+    const envDisabled = envValue === 'false' || envValue === '0';
+    this.shouldLog =
+      typeof options?.enableLogs === 'boolean'
+        ? options.enableLogs
+        : envEnabled
+          ? true
+          : envDisabled
+            ? false
+            : true;
+
     this.initializeRedis();
+  }
+
+  // Centralized logging. We gate all logs behind shouldLog for consistent control.
+  private log(...args: unknown[]): void {
+    if (this.shouldLog) console.log(...args);
+  }
+  private warn(...args: unknown[]): void {
+    if (this.shouldLog) console.warn(...args);
+  }
+  private error(...args: unknown[]): void {
+    console.error(...args);
+  }
+
+  // Allow runtime toggling if needed
+  setLogging(enabled: boolean): void {
+    this.shouldLog = enabled;
   }
 
   private async initializeRedis(): Promise<void> {
@@ -26,32 +56,32 @@ export class CacheService {
       });
 
       this.redis.on('connect', () => {
-        console.log('🔗 Redis cache connected');
+        this.log('🔗 Redis cache connected');
         this.isConnected = true;
       });
 
       this.redis.on('ready', () => {
-        console.log('✅ Redis cache ready');
+        this.log('✅ Redis cache ready');
         this.isConnected = true;
       });
 
       this.redis.on('error', (error) => {
-        console.error('❌ Redis cache error:', error.message);
+        this.error('❌ Redis cache error:', (error as Error).message);
         this.isConnected = false;
       });
 
       this.redis.on('close', () => {
-        console.log('🔌 Redis cache connection closed');
+        this.log('🔌 Redis cache connection closed');
         this.isConnected = false;
       });
 
       this.redis.on('reconnecting', () => {
-        console.log('🔄 Redis cache reconnecting...');
+        this.log('🔄 Redis cache reconnecting...');
       });
 
       await this.redis.connect();
     } catch (error) {
-      console.warn('⚠️ Redis cache not available, proceeding without caching:', error);
+      this.warn('⚠️ Redis cache not available, proceeding without caching:', error);
       this.redis = null;
       this.isConnected = false;
     }
@@ -59,7 +89,7 @@ export class CacheService {
 
   async getChunk(worldId: string, x: number, y: number): Promise<ChunkData | null> {
     if (!this.redis || !this.isConnected) {
-      console.log(`📦 Cache MISS (no connection): chunks:${worldId}:${x}:${y}`);
+      this.log(`📦 Cache MISS (no connection): chunks:${worldId}:${x}:${y}`);
       return null;
     }
 
@@ -72,21 +102,21 @@ export class CacheService {
       const duration = Date.now() - start;
 
       if (cachedData) {
-        console.log(`🎯 Cache HIT (${duration}ms): chunks:${worldId}:${x}:${y}`);
+        this.log(`🎯 Cache HIT (${duration}ms): chunks:${worldId}:${x}:${y}`);
         return JSON.parse(cachedData);
       }
 
-      console.log(`📦 Cache MISS (${duration}ms): chunks:${worldId}:${x}:${y}`);
+      this.log(`📦 Cache MISS (${duration}ms): chunks:${worldId}:${x}:${y}`);
       return null;
     } catch (error) {
-      console.error('❌ Error reading from Redis cache:', error);
+      this.error('❌ Error reading from Redis cache:', error);
       return null;
     }
   }
 
   async setChunk(worldId: string, x: number, y: number, data: ChunkData): Promise<void> {
     if (!this.redis || !this.isConnected) {
-      console.log(`💾 Cache SKIP (no connection): chunks:${worldId}:${x}:${y}`);
+      this.log(`💾 Cache SKIP (no connection): chunks:${worldId}:${x}:${y}`);
       return;
     }
 
@@ -102,9 +132,9 @@ export class CacheService {
       const duration = Date.now() - start;
       const sizeKB = Math.round(serializedData.length / 1024);
 
-      console.log(`💾 Cache SET (${duration}ms, ${sizeKB}KB): chunks:${worldId}:${x}:${y}`);
+      this.log(`💾 Cache SET (${duration}ms, ${sizeKB}KB): chunks:${worldId}:${x}:${y}`);
     } catch (error) {
-      console.error('❌ Error writing to Redis cache:', error);
+      this.error('❌ Error writing to Redis cache:', error);
     }
   }
 
@@ -116,12 +146,11 @@ export class CacheService {
     try {
       const key = `chunks:${worldId}:${x}:${y}`;
       await this.redis.del(key);
-      console.log(`🗑️ Cache DELETE: chunks:${worldId}:${x}:${y}`);
+      this.log(`🗑️ Cache DELETE: chunks:${worldId}:${x}:${y}`);
     } catch (error) {
-      console.error('❌ Error deleting from Redis cache:', error);
+      this.error('❌ Error deleting from Redis cache:', error);
     }
   }
-
 
   async clearWorld(worldId: string): Promise<void> {
     if (!this.redis || !this.isConnected) {
@@ -134,10 +163,10 @@ export class CacheService {
 
       if (keys.length > 0) {
         await this.redis.del(...keys);
-        console.log(`🧹 Cache CLEAR: Removed ${keys.length} chunks for world ${worldId}`);
+        this.log(`🧹 Cache CLEAR: Removed ${keys.length} chunks for world ${worldId}`);
       }
     } catch (error) {
-      console.error('❌ Error clearing world cache:', error);
+      this.error('❌ Error clearing world cache:', error);
     }
   }
 
@@ -164,7 +193,7 @@ export class CacheService {
         usedMemory,
       };
     } catch (error) {
-      console.error('❌ Error getting cache stats:', error);
+      this.error('❌ Error getting cache stats:', error);
       return { connected: false, keyCount: 0 };
     }
   }
@@ -173,9 +202,9 @@ export class CacheService {
     if (this.redis) {
       try {
         await this.redis.quit();
-        console.log('✅ Redis cache connection closed gracefully');
+        this.log('✅ Redis cache connection closed gracefully');
       } catch (error) {
-        console.error('❌ Error closing Redis connection:', error);
+        this.error('❌ Error closing Redis connection:', error);
       } finally {
         this.redis = null;
         this.isConnected = false;
@@ -196,7 +225,9 @@ let cacheService: CacheService | null = null;
  */
 export function getCacheService(): CacheService {
   if (!cacheService) {
-    cacheService = new CacheService();
+    cacheService = new CacheService({
+      enableLogs: false,
+    });
   }
   return cacheService;
 }

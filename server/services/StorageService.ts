@@ -42,8 +42,6 @@ export class StorageService {
       // Test connection and ensure bucket exists
       await this.ensureBucketExists();
       this.isConnected = true;
-
-      console.log('🪣 MinIO storage connected');
     } catch (error) {
       console.warn('⚠️ MinIO storage not available, proceeding without cold storage:', error);
       this.s3Client = null;
@@ -56,13 +54,11 @@ export class StorageService {
 
     try {
       await this.s3Client.send(new HeadBucketCommand({ Bucket: this.bucketName }));
-      console.log(`✅ MinIO bucket '${this.bucketName}' exists`);
     } catch (error) {
       if (this.isNotFoundError(error)) {
         // Bucket doesn't exist, create it
         try {
           await this.s3Client.send(new CreateBucketCommand({ Bucket: this.bucketName }));
-          console.log(`🆕 MinIO bucket '${this.bucketName}' created`);
         } catch (createError) {
           console.error(`❌ Failed to create bucket '${this.bucketName}':`, createError);
           throw createError;
@@ -91,7 +87,6 @@ export class StorageService {
 
   async getChunk(worldId: string, x: number, y: number): Promise<ChunkData | null> {
     if (!this.s3Client || !this.isConnected) {
-      console.log(`🪣 Storage MISS (no connection): ${worldId}:${x}:${y}`);
       return null;
     }
 
@@ -107,7 +102,6 @@ export class StorageService {
       const response = await this.s3Client.send(command);
 
       if (!response.Body) {
-        console.log(`🪣 Storage MISS (no body): ${worldId}:${x}:${y}`);
         return null;
       }
 
@@ -118,12 +112,10 @@ export class StorageService {
       const duration = Date.now() - start;
       const sizeKB = Math.round(data.length / 1024);
 
-      console.log(`🎯 Storage HIT (${duration}ms, ${sizeKB}KB): ${worldId}:${x}:${y}`);
       return chunkData;
     } catch (error) {
       if (this.isNotFoundError(error)) {
         const duration = Date.now() - performance.now();
-        console.log(`🪣 Storage MISS (${duration}ms): ${worldId}:${x}:${y}`);
         return null;
       }
 
@@ -134,7 +126,6 @@ export class StorageService {
 
   async saveChunk(worldId: string, x: number, y: number, data: ChunkData): Promise<void> {
     if (!this.s3Client || !this.isConnected) {
-      console.log(`🪣 Storage SKIP (no connection): ${worldId}:${x}:${y}`);
       return;
     }
 
@@ -160,8 +151,6 @@ export class StorageService {
 
       const duration = Date.now() - start;
       const sizeKB = Math.round(serializedData.length / 1024);
-
-      console.log(`💾 Storage SAVE (${duration}ms, ${sizeKB}KB): ${worldId}:${x}:${y}`);
     } catch (error) {
       console.error('❌ Error writing to MinIO storage:', error);
     }
@@ -181,7 +170,6 @@ export class StorageService {
       });
 
       await this.s3Client.send(command);
-      console.log(`🗑️ Storage DELETE: ${worldId}:${x}:${y}`);
     } catch (error) {
       console.error('❌ Error deleting from MinIO storage:', error);
     }
@@ -231,8 +219,6 @@ export class StorageService {
 
         continuationToken = listResponse.NextContinuationToken;
       } while (continuationToken);
-
-      console.log(`🧹 Storage CLEAR: Removed ${deletedCount} chunks for world ${worldId}`);
     } catch (error) {
       console.error('❌ Error clearing world storage:', error);
     }
@@ -319,6 +305,5 @@ export function getStorageService(): StorageService {
 export async function closeStorageService(): Promise<void> {
   if (storageService) {
     storageService = null;
-    console.log('✅ MinIO storage service closed');
   }
 }
