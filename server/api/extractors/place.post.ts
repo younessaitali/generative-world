@@ -1,8 +1,10 @@
 import { z } from 'zod';
 import defineValidatedEventHandler from '~~/server/utils/define-validated-event-handler';
 import { db } from '~~/server/database/connection';
-import { extractors, resourceVeins, resourceClaims } from '~~/server/database/schema';
-import { eq, and, sql } from 'drizzle-orm';
+import { extractors, resourceClaims } from '~~/server/database/schema';
+import { eq, sql } from 'drizzle-orm';
+import { validateWorldCoordinates, validateExtractorPlacement } from '~~/server/utils/validation';
+import { logger } from '#shared/utils/logger';
 
 const placeExtractorSchema = z.object({
   x: z.number(),
@@ -18,63 +20,28 @@ export default defineValidatedEventHandler({ body: placeExtractorSchema }, async
   const { x, y, resourceType } = event.context.validated.body;
   const worldId = player.worldId;
 
-  const existingExtractor = await db.query.extractors.findFirst({
-    where: and(eq(extractors.x, x), eq(extractors.y, y), eq(extractors.worldId, worldId)),
+  validateWorldCoordinates(x, y);
+
+  const placement = await validateExtractorPlacement({
+    x,
+    y,
+    resourceType,
+    playerId: player.id,
+    worldId,
   });
-  if (existingExtractor) {
-    throw createError({
-      statusCode: 409,
-      statusMessage: 'Extractor already exists at this location.',
-    });
-  }
-
-  const resourceVeinsAtLocation = await db
-    .select({
-      id: resourceVeins.id,
-      resourceType: resourceVeins.resourceType,
-      density: resourceVeins.density,
-    })
-    .from(resourceVeins)
-    .where(
-      and(
-        eq(resourceVeins.worldId, worldId),
-        eq(resourceVeins.resourceType, resourceType),
-        sql`ST_Within(ST_SetSRID(ST_MakePoint(${x}, ${y}), 4326), ${resourceVeins.extractionArea})`,
-      ),
-    );
-
-  if (resourceVeinsAtLocation.length === 0) {
-    throw createError({
-      statusCode: 404,
-      statusMessage: 'No extractable resource vein found at this location.',
-    });
-  }
-
-  const vein = resourceVeinsAtLocation[0];
-
-  const existingClaim = await db.query.resourceClaims.findFirst({
-    where: eq(resourceClaims.resourceVeinId, vein.id),
-  });
-
-  if (existingClaim && existingClaim.playerId !== player.id) {
-    throw createError({
-      statusCode: 409,
-      statusMessage: 'This resource vein is already claimed by another player.',
-    });
-  }
 
   const result = await db.transaction(async (trx) => {
-    if (!existingClaim) {
+    if (!placement.existingClaimPlayerId) {
       await trx.insert(resourceClaims).values({
         playerId: player.id,
-        resourceVeinId: vein.id,
+        resourceVeinId: placement.veinId,
         claimType: 'active',
       });
-    } else if (existingClaim.playerId === player.id) {
+    } else if (placement.existingClaimPlayerId === player.id) {
       await trx
         .update(resourceClaims)
         .set({ lastActivity: new Date() })
-        .where(eq(resourceClaims.id, existingClaim.id));
+        .where(eq(resourceClaims.resourceVeinId, placement.veinId));
     }
 
     const [created] = await trx
@@ -96,9 +63,15 @@ export default defineValidatedEventHandler({ body: placeExtractorSchema }, async
     return created;
   });
 
+  logger.info('Extractor placed', {
+    service: 'ExtractorsAPI',
+    method: 'place',
+    metadata: { extractorId: result.id, veinId: placement.veinId, x, y, worldId, resourceType },
+  });
+
   return {
     extractor: result,
-    veinId: vein.id,
+    veinId: placement.veinId,
     status: 201,
   };
 });

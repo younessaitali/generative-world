@@ -5,6 +5,8 @@ import { resourceVeins } from '~~/server/database/schema';
 import { sql } from 'drizzle-orm';
 import { ensureChunksHavePersistedVeins } from '~~/server/utils/resource-generator';
 import { WORLD_CONFIG } from '~~/app/config/world.config';
+import { validateWorldCoordinates } from '~~/server/utils/validation';
+import { logger } from '#shared/utils/logger';
 
 const nearbyResourcesSchema = z.object({
   x: z.coerce.number(),
@@ -33,6 +35,7 @@ export default defineValidatedEventHandler({ query: nearbyResourcesSchema }, asy
   const worldId = event.context.player.worldId;
 
   try {
+    validateWorldCoordinates(x, y);
     const requiredChunks = getChunksInRadius(x, y, radius, WORLD_CONFIG.chunk.size);
 
     await ensureChunksHavePersistedVeins(requiredChunks, worldId, WORLD_CONFIG.chunk.size);
@@ -71,7 +74,12 @@ export default defineValidatedEventHandler({ query: nearbyResourcesSchema }, asy
       resources: nearbyVeins,
     };
   } catch (error) {
-    console.error('Failed to query nearby resources:', error);
+    logger.error('Failed to query nearby resources', {
+      service: 'WorldAPI',
+      method: 'nearby-resources',
+      metadata: { x, y, radius, resourceType },
+      error: (error as Error).message,
+    });
     throw createError({
       statusCode: 500,
       statusMessage: 'Failed to query nearby resources',
