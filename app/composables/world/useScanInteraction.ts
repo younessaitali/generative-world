@@ -24,7 +24,6 @@ export function useScanInteraction(
     const canvasX = screenX - rect.left;
     const canvasY = screenY - rect.top;
 
-    // Convert screen coordinates to world coordinates using the world store camera
     const worldCoords = worldStore.screenToWorld(canvasX, canvasY);
 
     console.log(

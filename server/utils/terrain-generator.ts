@@ -10,26 +10,22 @@ import { ExtendedTerrainType as TerrainTypeEnum } from '#shared/types/world';
  * the terrain system documentation.
  */
 
-// Create independent noise functions with decorrelated offsets
-const elevationNoise = createNoise2D();
+const terrainElevationNoise = createNoise2D();
 const moistureNoise = createNoise2D();
 const temperatureNoise = createNoise2D();
 
-// Noise scale constants from specifications
 const NOISE_SCALES = {
   ELEVATION: 0.001, // Primary terrain height
   MOISTURE: 0.002, // Vegetation and water distribution
   TEMPERATURE: 0.0005, // Climate zones
 } as const;
 
-// Decorrelated noise offsets for realistic variation
 const NOISE_OFFSETS = {
   ELEVATION: { x: 0, y: 0 },
   MOISTURE: { x: 10000, y: 10000 },
   TEMPERATURE: { x: 20000, y: 20000 },
 } as const;
 
-// Terrain determination thresholds
 const TERRAIN_THRESHOLDS = {
   OCEAN_ELEVATION: -0.2,
   MOUNTAIN_ELEVATION: 0.7,
@@ -53,7 +49,7 @@ export interface NoiseValues {
  * Used by resource generation and other systems that need climate data
  */
 export function getTerrainNoiseValues(worldX: number, worldY: number): NoiseValues {
-  const elevation = elevationNoise(
+  const elevation = terrainElevationNoise(
     (worldX + NOISE_OFFSETS.ELEVATION.x) * NOISE_SCALES.ELEVATION,
     (worldY + NOISE_OFFSETS.ELEVATION.y) * NOISE_SCALES.ELEVATION,
   );
@@ -78,20 +74,15 @@ export function getTerrainNoiseValues(worldX: number, worldY: number): NoiseValu
 export function generateTerrainType(worldX: number, worldY: number): ExtendedTerrainType {
   const { elevation, moisture, temperature } = getTerrainNoiseValues(worldX, worldY);
 
-  // Ocean: elevation < -0.2
   if (elevation < TERRAIN_THRESHOLDS.OCEAN_ELEVATION) {
     return TerrainTypeEnum.OCEAN;
   }
 
-  // Mountains: elevation > 0.7
   if (elevation > TERRAIN_THRESHOLDS.MOUNTAIN_ELEVATION) {
     return TerrainTypeEnum.MOUNTAINS;
   }
 
-  // Other terrain types based on moisture/temperature combinations
-
-  // Low elevation terrain (plains vs swamp)
-  if (elevation < 0.2) {
+  if (elevation <= 0.2) {
     if (moisture > TERRAIN_THRESHOLDS.HIGH_MOISTURE) {
       return TerrainTypeEnum.SWAMP;
     } else {
@@ -99,7 +90,6 @@ export function generateTerrainType(worldX: number, worldY: number): ExtendedTer
     }
   }
 
-  // Medium elevation terrain (hills vs forest)
   if (elevation < 0.5) {
     if (moisture > TERRAIN_THRESHOLDS.HIGH_MOISTURE) {
       return TerrainTypeEnum.FOREST;
@@ -108,7 +98,6 @@ export function generateTerrainType(worldX: number, worldY: number): ExtendedTer
     }
   }
 
-  // High elevation terrain (mountains vs tundra vs desert)
   if (temperature < TERRAIN_THRESHOLDS.LOW_TEMPERATURE) {
     return TerrainTypeEnum.TUNDRA;
   }
@@ -120,7 +109,6 @@ export function generateTerrainType(worldX: number, worldY: number): ExtendedTer
     return TerrainTypeEnum.DESERT;
   }
 
-  // Default fallback
   return TerrainTypeEnum.HILLS;
 }
 

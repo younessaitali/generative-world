@@ -20,10 +20,6 @@ export interface UseWorldManagerOptions {
   debounceDuration?: number;
 }
 
-/**
- * Main world manager composable
- * Orchestrates all world systems: rendering, networking, interaction, and chunks
- */
 export function useWorldManager(
   container: Ref<HTMLElement | null | undefined>,
   options: UseWorldManagerOptions = {},
@@ -79,12 +75,10 @@ export function useWorldManager(
   };
 
   const setupEventHandlers = () => {
-    // Handle camera events from interactions
     interaction.onCameraEvent((event: CameraEvent) => {
       worldStore.handleCameraEvent(event);
     });
 
-    // Handle chunk data from WebSocket
     webSocket.onChunkData((message: ChunkDataMessage) => {
       const coordinate: ChunkCoordinate = {
         chunkX: message.chunkX,
@@ -128,7 +122,6 @@ export function useWorldManager(
     }
   };
 
-  // Debounced chunk loading to prevent excessive requests
   const debouncedLoadChunks = useDebounceFn(loadVisibleChunks, options.debounceDuration ?? 250);
 
   const resize = (width: number, height: number) => {

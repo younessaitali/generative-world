@@ -1,4 +1,3 @@
-// World System Core Types
 export interface Camera {
   x: number;
   y: number;
@@ -47,7 +46,6 @@ export interface WorldConfig {
   prefetchRadius: number;
 }
 
-// WebSocket Message Types
 export interface WebSocketMessage {
   type: string;
   timestamp?: string;
@@ -114,7 +112,6 @@ export type WorldMessage =
   | ErrorMessage
   | ViewportCompleteMessage;
 
-// Renderer Types
 export interface RendererConfig {
   width: number;
   height: number;
@@ -153,7 +150,6 @@ export interface WorldError {
   recoverable: boolean;
 }
 
-// Terrain System Types
 export enum ClimateType {
   ARCTIC = 'ARCTIC',
   TEMPERATE = 'TEMPERATE',
@@ -215,9 +211,7 @@ export interface TerrainCell {
   };
 }
 
-// Resource System Types
 export enum ResourceType {
-  // Common Metals (High availability, low value)
   IRON = 'IRON',
   COPPER = 'COPPER',
   ALUMINUM = 'ALUMINUM',
@@ -225,13 +219,11 @@ export enum ResourceType {
   LEAD = 'LEAD',
   TIN = 'TIN',
 
-  // Precious Metals (Low availability, high value)
   GOLD = 'GOLD',
   SILVER = 'SILVER',
   PLATINUM = 'PLATINUM',
   PALLADIUM = 'PALLADIUM',
 
-  // Industrial Metals (Medium availability, medium value)
   NICKEL = 'NICKEL',
   COBALT = 'COBALT',
   CHROMIUM = 'CHROMIUM',
@@ -240,24 +232,20 @@ export enum ResourceType {
   TUNGSTEN = 'TUNGSTEN',
   TITANIUM = 'TITANIUM',
 
-  // Rare Earth Elements (Very low availability, very high value)
   LITHIUM = 'LITHIUM',
   NEODYMIUM = 'NEODYMIUM',
   CERIUM = 'CERIUM',
   YTTRIUM = 'YTTRIUM',
   SCANDIUM = 'SCANDIUM',
 
-  // Energy Resources
   URANIUM = 'URANIUM',
   THORIUM = 'THORIUM',
 
-  // Industrial Minerals
   QUARTZ = 'QUARTZ',
   GRAPHITE = 'GRAPHITE',
   DIAMOND = 'DIAMOND',
   BERYLLIUM = 'BERYLLIUM',
 
-  // Composite Deposits (contain multiple resources)
   POLYMETALLIC = 'POLYMETALLIC',
   RARE_EARTH_COMPLEX = 'RARE_EARTH_COMPLEX',
 }
@@ -270,25 +258,21 @@ export enum ResourceGrade {
 }
 
 export enum FormationType {
-  // Magmatic Deposits
   PEGMATITE = 'PEGMATITE',
   MAGMATIC_SULFIDE = 'MAGMATIC_SULFIDE',
   KIMBERLITE = 'KIMBERLITE',
   CARBONATITE = 'CARBONATITE',
 
-  // Hydrothermal Deposits
   PORPHYRY = 'PORPHYRY',
   EPITHERMAL = 'EPITHERMAL',
   OROGENIC = 'OROGENIC',
   VMS = 'VMS',
 
-  // Sedimentary Deposits
   PLACER = 'PLACER',
   BIF = 'BIF',
   LATERITE = 'LATERITE',
   SEDEX = 'SEDEX',
 
-  // Metamorphic Deposits
   SKARN = 'SKARN',
   GREISEN = 'GREISEN',
 }

@@ -5,7 +5,6 @@ export default defineNitroPlugin(async (nitroApp) => {
   logger.info('Initializing MinIO Storage Service...', { context: 'minio-plugin' });
 
   try {
-    // Initialize storage service singleton
     const storageService = getStorageService();
 
     // Wait for connection to be established

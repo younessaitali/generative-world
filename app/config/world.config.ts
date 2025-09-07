@@ -37,10 +37,10 @@ export const WORLD_CONFIG = {
 
   performance: {
     maxFPS: 60,
-    targetFrameTime: 16.67, // Target 60fps = ~16.67ms per frame
+    targetFrameTime: 16.67, // Target 60fps
     enableStats: process.env.NODE_ENV === 'development',
-    batchSize: 100, // Number of chunks to process per batch
-    debounceDelay: 100, // Debounce delay for user interactions
+    batchSize: 100, // Chunks to process per batch
+    debounceDelay: 100, // Debounce for user interactions
   },
 } as const;
 

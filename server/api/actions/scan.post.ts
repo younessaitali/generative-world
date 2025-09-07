@@ -2,6 +2,13 @@ import { z } from 'zod/v4';
 import { createError } from 'h3';
 import defineValidatedEventHandler from '~~/server/utils/define-validated-event-handler';
 import { ensureChunksHavePersistedVeins } from '~~/server/utils/resource-generator';
+import {
+  normalizeWorldCoordinates,
+  worldToFullCoordinate,
+  getChunksInRadius,
+  assertValidCoordinates,
+  calculateDistance,
+} from '#shared/utils/coordinates';
 import type {
   ResourceVein,
   ScanLevel,
@@ -48,24 +55,14 @@ async function findNearbyResourceInDatabase(
   worldId: string,
   chunkSize: number,
 ): Promise<ResourceVein | null> {
-  const chunksToCheck: Array<{ chunkX: number; chunkY: number }> = [];
-  for (let dx = -radius; dx <= radius; dx++) {
-    for (let dy = -radius; dy <= radius; dy++) {
-      const checkX = targetX + dx;
-      const checkY = targetY + dy;
-      const chunkX = Math.floor(checkX / chunkSize);
-      const chunkY = Math.floor(checkY / chunkSize);
+  const normalizedCoords = normalizeWorldCoordinates(targetX, targetY);
+  const { x: normalizedX, y: normalizedY } = normalizedCoords;
 
-      // Add unique chunks
-      if (!chunksToCheck.some((c) => c.chunkX === chunkX && c.chunkY === chunkY)) {
-        chunksToCheck.push({ chunkX, chunkY });
-      }
-    }
-  }
+  const chunksToCheck = getChunksInRadius(normalizedX, normalizedY, radius, chunkSize);
 
   await ensureChunksHavePersistedVeins(chunksToCheck, worldId, chunkSize);
 
-  const queryPoint = sql`ST_SetSRID(ST_MakePoint(${targetX}, ${targetY}), 4326)`;
+  const queryPoint = sql`ST_SetSRID(ST_MakePoint(${normalizedX}, ${normalizedY}), 4326)`;
 
   const nearbyVeins = await db
     .select({
@@ -95,16 +92,19 @@ async function findNearbyResourceInDatabase(
 
   const vein = nearbyVeins[0];
 
+  const veinCoords = normalizeWorldCoordinates(vein.centerX, vein.centerY);
+  const veinFullCoords = worldToFullCoordinate(veinCoords.x, veinCoords.y, chunkSize);
+
   return {
     id: vein.id as string,
     type: vein.resourceType as ResourceType,
     location: {
-      worldX: vein.centerX,
-      worldY: vein.centerY,
-      chunkX: Math.floor(vein.centerX / chunkSize),
-      chunkY: Math.floor(vein.centerY / chunkSize),
-      cellX: vein.centerX % chunkSize,
-      cellY: vein.centerY % chunkSize,
+      worldX: veinCoords.x,
+      worldY: veinCoords.y,
+      chunkX: veinFullCoords.chunkX,
+      chunkY: veinFullCoords.chunkY,
+      cellX: veinFullCoords.cellX,
+      cellY: veinFullCoords.cellY,
     },
     deposit: {
       size: Math.PI * vein.radius * vein.radius,
@@ -145,7 +145,7 @@ async function findNearbyResourceInDatabase(
     },
     metadata: {
       generated: new Date().toISOString(),
-      seed: Math.floor(vein.centerX * 1000 + vein.centerY),
+      seed: Math.floor(veinCoords.x * 1000 + veinCoords.y),
       version: '1.0',
       tags: [],
     },
@@ -176,32 +176,29 @@ export default defineValidatedEventHandler(
       });
     }
 
-    const chunkSize = 16;
-    const chunkX = Math.floor(worldX / chunkSize);
-    const chunkY = Math.floor(worldY / chunkSize);
-
-    const cellX = ((worldX % chunkSize) + chunkSize) % chunkSize;
-    const cellY = ((worldY % chunkSize) + chunkSize) % chunkSize;
+    assertValidCoordinates(worldX, worldY);
+    const normalizedCoords = normalizeWorldCoordinates(worldX, worldY);
+    const fullCoords = worldToFullCoordinate(normalizedCoords.x, normalizedCoords.y, 16);
 
     try {
       const resourceVein = await findNearbyResourceInDatabase(
-        worldX,
-        worldY,
+        normalizedCoords.x,
+        normalizedCoords.y,
         searchRadius,
         player.worldId,
-        chunkSize,
+        16,
       );
 
       const scanResult: ScanResult = {
         success: true,
         playerId,
         coordinates: {
-          worldX,
-          worldY,
-          chunkX,
-          chunkY,
-          cellX,
-          cellY,
+          worldX: normalizedCoords.x,
+          worldY: normalizedCoords.y,
+          chunkX: fullCoords.chunkX,
+          chunkY: fullCoords.chunkY,
+          cellX: fullCoords.cellX,
+          cellY: fullCoords.cellY,
         },
         scanLevel: ScanLevelEnum.SURFACE,
         timestamp: new Date().toISOString(),
@@ -210,15 +207,15 @@ export default defineValidatedEventHandler(
       try {
         await db.insert(playerScans).values({
           sessionId: player.sessionId,
-          scanCenter: sql`ST_SetSRID(ST_MakePoint(${worldX}, ${worldY}), 4326)`,
-          scanArea: sql`ST_Buffer(ST_SetSRID(ST_MakePoint(${worldX}, ${worldY}), 4326), ${searchRadius})`,
+          scanCenter: sql`ST_SetSRID(ST_MakePoint(${normalizedCoords.x}, ${normalizedCoords.y}), 4326)`,
+          scanArea: sql`ST_Buffer(ST_SetSRID(ST_MakePoint(${normalizedCoords.x}, ${normalizedCoords.y}), 4326), ${searchRadius})`,
           scanType: 'resource',
           results: {
             success: true,
             resourceFound: !!resourceVein,
             resourceType: resourceVein?.type || null,
             scanLevel: ScanLevelEnum.SURFACE,
-            coordinates: { worldX, worldY },
+            coordinates: { worldX: normalizedCoords.x, worldY: normalizedCoords.y },
             searchRadius,
           },
         });
@@ -240,13 +237,14 @@ export default defineValidatedEventHandler(
 
         scanResult.discovered = discoveredVein;
 
-        // Check if the resource was found at exact coordinates or nearby
         const isExactMatch =
-          resourceVein.location.worldX === worldX && resourceVein.location.worldY === worldY;
+          resourceVein.location.worldX === normalizedCoords.x &&
+          resourceVein.location.worldY === normalizedCoords.y;
 
-        const dx = Math.pow(resourceVein.location.worldX - worldX, 2);
-        const dy = Math.pow(resourceVein.location.worldY - worldY, 2);
-        const distance = Math.sqrt(dx + dy);
+        const distance = calculateDistance(
+          { x: resourceVein.location.worldX, y: resourceVein.location.worldY },
+          normalizedCoords,
+        );
 
         if (isExactMatch) {
           scanResult.message = `Resource vein discovered: ${discoveredVein.type} (Grade: ${discoveredVein.quality.grade})`;
@@ -265,12 +263,12 @@ export default defineValidatedEventHandler(
         success: false,
         playerId,
         coordinates: {
-          worldX,
-          worldY,
-          chunkX,
-          chunkY,
-          cellX,
-          cellY,
+          worldX: normalizedCoords?.x || worldX,
+          worldY: normalizedCoords?.y || worldY,
+          chunkX: fullCoords?.chunkX || Math.floor(worldX / 16),
+          chunkY: fullCoords?.chunkY || Math.floor(worldY / 16),
+          cellX: fullCoords?.cellX || ((worldX % 16) + 16) % 16,
+          cellY: fullCoords?.cellY || ((worldY % 16) + 16) % 16,
         },
         scanLevel: ScanLevelEnum.SURFACE,
         timestamp: new Date().toISOString(),

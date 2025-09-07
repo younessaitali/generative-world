@@ -46,7 +46,6 @@ export class DatabaseService {
             ),
           );
       } else {
-        // Return all resource veins
         return await this.database.select().from(resourceVeins);
       }
     }, `get resource veins`);
@@ -99,7 +98,6 @@ export class DatabaseService {
     }, `get player scans for session ${sessionId}`);
   }
 
-  // Event operations
   async recordEvent(eventData: {
     eventType: string;
     eventData: Record<string, unknown>;
@@ -113,7 +111,6 @@ export class DatabaseService {
     }, `record event ${eventData.eventType}`);
   }
 
-  // Performance monitoring methods
   async getConnectionHealth(): Promise<{
     totalConnections: number;
     idleConnections: number;

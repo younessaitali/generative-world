@@ -16,6 +16,7 @@ const props = defineProps<{
 
 const emit = defineEmits<{
   close: [];
+  placingStart: [];
   extractorPlaced: [extractor: ExtractorPlacement];
 }>();
 
@@ -48,9 +49,10 @@ const handlePlaceExtractor = async (resourceType: ResourceType) => {
   const { x, y } = props.scanResult;
   const existingExtractor = getExtractorAt(Math.round(x), Math.round(y));
   if (existingExtractor) {
-    // todo show notification
     return;
   }
+
+  emit('placingStart');
 
   const placed = await placeExtractor(x, y, resourceType);
   if (placed) {
@@ -349,7 +351,6 @@ const handlePlaceExtractor = async (resourceType: ResourceType) => {
   color: #ef4444;
 }
 
-/* Extractor Placement Styles */
 .extractor-placement {
   margin-top: 1rem;
   padding-top: 0.75rem;

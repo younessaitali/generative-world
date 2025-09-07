@@ -10,6 +10,7 @@ import {
   pgEnum,
   unique,
   geometry,
+  doublePrecision,
 } from 'drizzle-orm/pg-core';
 import { relations } from 'drizzle-orm';
 import { createInsertSchema, createSelectSchema } from 'drizzle-zod';
@@ -82,9 +83,9 @@ export const resourceVeins = pgTable(
       .notNull()
       .references(() => worlds.id, { onDelete: 'cascade' }),
     resourceType: text('resource_type').notNull(),
-    centerX: real('center_x').notNull(),
-    centerY: real('center_y').notNull(),
-    radius: real('radius').notNull(),
+    centerX: doublePrecision('center_x').notNull(),
+    centerY: doublePrecision('center_y').notNull(),
+    radius: doublePrecision('radius').notNull(),
     centerPoint: geometry('center_point', {
       type: 'point',
       mode: 'xy',
@@ -95,11 +96,11 @@ export const resourceVeins = pgTable(
       mode: 'xy',
       srid: 4326,
     }).notNull(),
-    density: real('density').notNull(),
-    quality: real('quality').notNull(),
-    depth: real('depth'),
+    density: doublePrecision('density').notNull(),
+    quality: doublePrecision('quality').notNull(),
+    depth: doublePrecision('depth'),
     isExhausted: boolean('is_exhausted').notNull().default(false),
-    extractedAmount: real('extracted_amount').notNull().default(0),
+    extractedAmount: doublePrecision('extracted_amount').notNull().default(0),
     discoveredAt: timestamp('discovered_at'),
     createdAt: timestamp('created_at').notNull().defaultNow(),
   },
@@ -252,8 +253,6 @@ export const resourceClaimsRelations = relations(resourceClaims, ({ one }) => ({
   }),
 }));
 
-// Zod Schemas for validation
-
 export const insertWorldSchema = createInsertSchema(worlds, {
   name: z.string().min(1).max(100),
   seed: z.string().min(1),
@@ -315,7 +314,6 @@ export const insertExtractorSchema = createInsertSchema(extractors, {
 
 export const selectExtractorSchema = createSelectSchema(extractors);
 
-// Export types
 export type World = z.infer<typeof selectWorldSchema>;
 export type NewWorld = z.infer<typeof insertWorldSchema>;
 export type Player = z.infer<typeof selectPlayerSchema>;

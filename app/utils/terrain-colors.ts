@@ -7,7 +7,6 @@ import { ExtendedTerrainType } from '#shared/types/world';
  * Colors are chosen for clarity, accessibility, and visual appeal in both light and dark themes.
  */
 
-// Terrain color definitions as hex values
 export const TERRAIN_HEX_COLORS = {
   [ExtendedTerrainType.OCEAN]: '#1a5490',
   [ExtendedTerrainType.PLAINS]: '#7c9c5e',
@@ -19,8 +18,7 @@ export const TERRAIN_HEX_COLORS = {
   [ExtendedTerrainType.TUNDRA]: '#b8c5d1',
 } as const;
 
-// Convert hex to PixiJS-compatible number format
-export const TERRAIN_PIXI_COLORS = {
+export const TERRAIN_COLORS: Record<ExtendedTerrainType, number> = {
   [ExtendedTerrainType.OCEAN]: 0x1a5490,
   [ExtendedTerrainType.PLAINS]: 0x7c9c5e,
   [ExtendedTerrainType.HILLS]: 0x8b7355,
@@ -31,7 +29,6 @@ export const TERRAIN_PIXI_COLORS = {
   [ExtendedTerrainType.TUNDRA]: 0xb8c5d1,
 } as const;
 
-// RGB values for CSS and other applications
 export const TERRAIN_RGB_COLORS = {
   [ExtendedTerrainType.OCEAN]: { r: 26, g: 84, b: 144 },
   [ExtendedTerrainType.PLAINS]: { r: 124, g: 156, b: 94 },
@@ -54,7 +51,7 @@ export function getTerrainHexColor(terrainType: ExtendedTerrainType): string {
  * Get terrain color as PixiJS-compatible number
  */
 export function getTerrainPixiColor(terrainType: ExtendedTerrainType): number {
-  return TERRAIN_PIXI_COLORS[terrainType];
+  return TERRAIN_COLORS[terrainType];
 }
 
 /**
@@ -101,7 +98,7 @@ export function getAllTerrainColors(): Array<{
   return Object.values(ExtendedTerrainType).map((type) => ({
     type,
     hex: TERRAIN_HEX_COLORS[type],
-    pixi: TERRAIN_PIXI_COLORS[type],
+    pixi: TERRAIN_COLORS[type],
   }));
 }
 
@@ -146,7 +143,6 @@ export function getTerrainColorContrast(
 ): number {
   const { r, g, b } = TERRAIN_RGB_COLORS[terrainType];
 
-  // Simple contrast calculation - could be enhanced with proper WCAG algorithm
   const brightness = (r * 299 + g * 587 + b * 114) / 1000;
   const bgBrightness = backgroundColor === '#ffffff' ? 255 : 0;
 

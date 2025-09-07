@@ -17,7 +17,6 @@ export function useWorldRenderer(container: Ref<HTMLElement | null | undefined>)
   const stats = ref<RendererStats | null>(null);
 
   const initialize = async (_config: RendererConfig) => {
-    // Wait for container to be available if it's not yet
     let attempts = 0;
     const maxAttempts = 50;
 
@@ -99,6 +98,16 @@ export function useWorldRenderer(container: Ref<HTMLElement | null | undefined>)
     rendererService.clearAllExtractors();
   };
 
+  const setPlacementPreview = (x: number, y: number, color: number, valid: boolean) => {
+    if (!rendererService) return;
+    rendererService.setPlacementPreview(x, y, color, valid);
+  };
+
+  const hidePlacementPreview = () => {
+    if (!rendererService) return;
+    rendererService.hidePlacementPreview();
+  };
+
   const destroy = () => {
     if (rendererService) {
       rendererService.destroy();
@@ -127,6 +136,8 @@ export function useWorldRenderer(container: Ref<HTMLElement | null | undefined>)
     removeExtractor,
     updateExtractorStatus,
     clearAllExtractors,
+    setPlacementPreview,
+    hidePlacementPreview,
     destroy,
   };
 }

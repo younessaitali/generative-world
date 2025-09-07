@@ -11,6 +11,14 @@ import { getStorageService } from '~~/server/services/StorageService';
 import { db } from '~~/server/database/connection';
 import { resourceVeins } from '~~/server/database/schema';
 import { sql } from 'drizzle-orm';
+import {
+  normalizeWorldCoordinates,
+  worldToFullCoordinate,
+  validateResourcePosition,
+  generateChunkResourcePositions,
+  MIN_RESOURCE_DISTANCE,
+  type WorldCoordinate,
+} from '#shared/utils/coordinates';
 import type {
   ResourceVein,
   ResourceType,
@@ -27,40 +35,27 @@ import {
 } from '#shared/types/world';
 import { isValidUUID } from '#shared/index';
 
-/**
- * Resource Generation Utility
- *
- * Generates procedural resource veins for chunks using multiple noise layers
- * and realistic geological distribution patterns.
- */
+const resourceDensityNoise = createNoise2D();
+const resourceTypeNoise = createNoise2D();
+const richnessnoise = createNoise2D();
+const sizeNoise = createNoise2D();
+const depthNoise = createNoise2D();
 
-// Create different noise functions for various aspects of resource generation
-const resourceDensityNoise = createNoise2D(); // Controls overall resource density
-const resourceTypeNoise = createNoise2D(); // Determines resource type distribution
-const richnessnoise = createNoise2D(); // Controls ore richness/quality
-const sizeNoise = createNoise2D(); // Controls vein size
-const depthNoise = createNoise2D(); // Controls depth below surface
-
-// Configuration constants
 const RESOURCE_GENERATION_CONFIG = {
-  // Base probability of resource generation per cell (0.0 - 1.0)
   BASE_RESOURCE_PROBABILITY: 0.15,
 
-  // Noise scales for different aspects
-  DENSITY_NOISE_SCALE: 0.05, // Larger scale for regional resource distribution
+  DENSITY_NOISE_SCALE: 0.1,
   TYPE_NOISE_SCALE: 0.08, // Medium scale for resource type clustering
   RICHNESS_NOISE_SCALE: 0.12, // Smaller scale for local variations
   SIZE_NOISE_SCALE: 0.1, // Size variation scale
   DEPTH_NOISE_SCALE: 0.15, // Depth variation scale
 
-  // Resource generation thresholds
   DENSITY_THRESHOLD: 0.2, // Minimum noise value for resource generation
-  HIGH_DENSITY_THRESHOLD: 0.6, // Threshold for higher density areas
+  HIGH_DENSITY_THRESHOLD: 0.6,
 
-  // Rarity modifiers
-  COMMON_MULTIPLIER: 1.5, // Boost common resources
-  RARE_MULTIPLIER: 0.3, // Reduce rare resources
-  ULTRA_RARE_MULTIPLIER: 0.1, // Heavily reduce ultra-rare resources
+  COMMON_MULTIPLIER: 1.5,
+  RARE_MULTIPLIER: 0.3,
+  ULTRA_RARE_MULTIPLIER: 0.1,
 };
 
 /**
@@ -71,17 +66,18 @@ async function persistResourceVeinToDatabase(vein: ResourceVein, worldId: string
   const { size, richness, depth } = vein.deposit;
   const { purity } = vein.quality;
 
+  const normalizedCoords = normalizeWorldCoordinates(worldX, worldY);
   const extractionRadius = Math.sqrt(size) * 10;
 
-  const centerPoint = sql`ST_SetSRID(ST_MakePoint(${worldX}, ${worldY}), 4326)`;
-  const extractionArea = sql`ST_SetSRID(ST_Buffer(ST_MakePoint(${worldX}, ${worldY}), ${extractionRadius}), 4326)`;
+  const centerPoint = sql`ST_SetSRID(ST_MakePoint(${normalizedCoords.x}, ${normalizedCoords.y}), 4326)`;
+  const extractionArea = sql`ST_SetSRID(ST_Buffer(ST_MakePoint(${normalizedCoords.x}, ${normalizedCoords.y}), ${extractionRadius}), 4326)`;
 
   try {
     await db.insert(resourceVeins).values({
       worldId,
       resourceType: vein.type,
-      centerX: worldX,
-      centerY: worldY,
+      centerX: normalizedCoords.x,
+      centerY: normalizedCoords.y,
       radius: extractionRadius,
       centerPoint,
       extractionArea,
@@ -93,9 +89,12 @@ async function persistResourceVeinToDatabase(vein: ResourceVein, worldId: string
     });
   } catch (error) {
     console.error(`Failed to persist resource vein ${vein.id}:`, error);
-    // Don't throw - resource generation should continue even if DB fails
   }
 }
+const chunkGenerationInProgress = new Map<string, Promise<void>>();
+const MAX_CONCURRENT_CHUNK_GENERATIONS = 5;
+let activeGenerations = 0;
+
 /**
  * Ensures resource veins exist in database for chunks required by a spatial query.
  * This implements the "lazy persistence" pattern - veins are generated and saved
@@ -146,11 +145,34 @@ export async function ensureChunksHavePersistedVeins(
         `📍 [PERSISTENCE] Generating and persisting veins for ${chunksNeedingVeins.length} chunks in world ${worldId}`,
       );
 
-      await Promise.all(
-        chunksNeedingVeins.map(({ chunkX, chunkY }) =>
-          generateAndPersistChunkResources(chunkX, chunkY, chunkSize, worldId),
-        ),
-      );
+      // Process chunks with concurrency limit and deduplication
+      const generationPromises = chunksNeedingVeins.map(({ chunkX, chunkY }) => {
+        const chunkKey = `${worldId}:${chunkX}:${chunkY}`;
+
+        if (chunkGenerationInProgress.has(chunkKey)) {
+          return chunkGenerationInProgress.get(chunkKey)!;
+        }
+
+        const generationPromise = (async () => {
+          // Wait for available slot
+          while (activeGenerations >= MAX_CONCURRENT_CHUNK_GENERATIONS) {
+            await new Promise((resolve) => setTimeout(resolve, 50));
+          }
+
+          activeGenerations++;
+          try {
+            await generateAndPersistChunkResources(chunkX, chunkY, chunkSize, worldId);
+          } finally {
+            activeGenerations--;
+            chunkGenerationInProgress.delete(chunkKey);
+          }
+        })();
+
+        chunkGenerationInProgress.set(chunkKey, generationPromise);
+        return generationPromise;
+      });
+
+      await Promise.allSettled(generationPromises);
 
       console.log(
         `✅ [PERSISTENCE] Successfully persisted veins for chunks: ${chunksNeedingVeins.map((c) => `(${c.chunkX},${c.chunkY})`).join(', ')}`,
@@ -173,8 +195,12 @@ export async function generateAndPersistChunkResources(
 ): Promise<ResourceVein[]> {
   const resources = generateChunkResources(chunkX, chunkY, chunkSize);
 
-  // Persist all resource veins to database in parallel
-  await Promise.allSettled(resources.map((vein) => persistResourceVeinToDatabase(vein, worldId)));
+  // Persist all resource veins to database with reduced parallelism to avoid overwhelming connections
+  const batchSize = 3;
+  for (let i = 0; i < resources.length; i += batchSize) {
+    const batch = resources.slice(i, i + batchSize);
+    await Promise.allSettled(batch.map((vein) => persistResourceVeinToDatabase(vein, worldId)));
+  }
 
   return resources;
 }
@@ -185,41 +211,55 @@ export function generateChunkResources(
   chunkSize: number = 16,
 ): ResourceVein[] {
   const resources: ResourceVein[] = [];
-
   const resourceTypes = Object.keys(RESOURCE_CONFIGS) as ResourceType[];
 
-  for (let cellY = 0; cellY < chunkSize; cellY++) {
-    for (let cellX = 0; cellX < chunkSize; cellX++) {
-      const worldX = chunkX * chunkSize + cellX;
-      const worldY = chunkY * chunkSize + cellY;
+  // Pre-generate potential resource positions to prevent overlaps
+  const maxResourcesPerChunk = Math.ceil(
+    chunkSize * chunkSize * RESOURCE_GENERATION_CONFIG.BASE_RESOURCE_PROBABILITY,
+  );
+  const candidatePositions = generateChunkResourcePositions(
+    chunkX,
+    chunkY,
+    chunkSize,
+    maxResourcesPerChunk,
+    MIN_RESOURCE_DISTANCE,
+  );
 
-      const densityValue = resourceDensityNoise(
-        worldX * RESOURCE_GENERATION_CONFIG.DENSITY_NOISE_SCALE,
-        worldY * RESOURCE_GENERATION_CONFIG.DENSITY_NOISE_SCALE,
-      );
+  const existingPositions: WorldCoordinate[] = [];
 
-      if (densityValue < RESOURCE_GENERATION_CONFIG.DENSITY_THRESHOLD) {
-        continue;
-      }
+  for (const position of candidatePositions) {
+    const densityValue = resourceDensityNoise(
+      position.x * RESOURCE_GENERATION_CONFIG.DENSITY_NOISE_SCALE,
+      position.y * RESOURCE_GENERATION_CONFIG.DENSITY_NOISE_SCALE,
+    );
 
-      const resourceType = selectResourceType(worldX, worldY, resourceTypes);
-      if (!resourceType) {
-        continue;
-      }
-
-      const resourceVein = generateResourceVein(
-        resourceType,
-        worldX,
-        worldY,
-        chunkX,
-        chunkY,
-        cellX,
-        cellY,
-        densityValue,
-      );
-
-      resources.push(resourceVein);
+    if (densityValue < RESOURCE_GENERATION_CONFIG.DENSITY_THRESHOLD) {
+      continue;
     }
+
+    const resourceType = selectResourceType(position.x, position.y, resourceTypes);
+    if (!resourceType) {
+      continue;
+    }
+
+    if (!validateResourcePosition(position, existingPositions, MIN_RESOURCE_DISTANCE)) {
+      continue;
+    }
+
+    const fullCoords = worldToFullCoordinate(position.x, position.y, chunkSize);
+    const resourceVein = generateResourceVein(
+      resourceType,
+      position.x,
+      position.y,
+      fullCoords.chunkX,
+      fullCoords.chunkY,
+      fullCoords.cellX,
+      fullCoords.cellY,
+      densityValue,
+    );
+
+    resources.push(resourceVein);
+    existingPositions.push(position);
   }
 
   return resources;
@@ -238,14 +278,12 @@ function selectResourceType(
     worldY * RESOURCE_GENERATION_CONFIG.TYPE_NOISE_SCALE,
   );
 
-  // Create weighted list based on resource rarity
-  const weightedTypes: { type: ResourceType; weight: number }[] = [];
+  const weightedResources: Array<{ type: ResourceType; weight: number }> = [];
 
   for (const type of availableTypes) {
     const config = RESOURCE_CONFIGS[type];
     let weight = config.rarity;
 
-    // Apply rarity modifiers
     if (config.rarity >= 0.7) {
       weight *= RESOURCE_GENERATION_CONFIG.COMMON_MULTIPLIER;
     } else if (config.rarity <= 0.1) {
@@ -254,28 +292,25 @@ function selectResourceType(
       weight *= RESOURCE_GENERATION_CONFIG.RARE_MULTIPLIER;
     }
 
-    weightedTypes.push({ type, weight });
+    weightedResources.push({ type, weight });
   }
 
-  // Sort by weight (higher weight = more likely)
-  weightedTypes.sort((a, b) => b.weight - a.weight);
+  weightedResources.sort((a, b) => b.weight - a.weight);
 
-  // Use noise to select from weighted list
   const normalizedNoise = (typeNoise + 1) / 2; // Convert from [-1,1] to [0,1]
-  const totalWeight = weightedTypes.reduce((sum, item) => sum + item.weight, 0);
+  const totalWeight = weightedResources.reduce((sum, item) => sum + item.weight, 0);
 
   let accumulator = 0;
   const threshold = normalizedNoise * totalWeight;
 
-  for (const item of weightedTypes) {
+  for (const item of weightedResources) {
     accumulator += item.weight;
     if (accumulator >= threshold) {
       return item.type;
     }
   }
 
-  // Fallback to most common resource
-  return weightedTypes[0]?.type || null;
+  return weightedResources[0]?.type || null;
 }
 
 /**
@@ -294,26 +329,25 @@ function generateResourceVein(
   const config = RESOURCE_CONFIGS[resourceType];
   const id = uuidv4();
 
-  // Generate richness based on noise and base rarity
+  const normalizedCoords = normalizeWorldCoordinates(worldX, worldY);
+
   const richnessValue = richnessnoise(
-    worldX * RESOURCE_GENERATION_CONFIG.RICHNESS_NOISE_SCALE,
-    worldY * RESOURCE_GENERATION_CONFIG.RICHNESS_NOISE_SCALE,
+    normalizedCoords.x * RESOURCE_GENERATION_CONFIG.RICHNESS_NOISE_SCALE,
+    normalizedCoords.y * RESOURCE_GENERATION_CONFIG.RICHNESS_NOISE_SCALE,
   );
   const normalizedRichness = (richnessValue + 1) / 2; // Convert to [0,1]
   const richness = Math.max(0.1, Math.min(1.0, normalizedRichness * config.rarity + 0.2));
 
-  // Generate size based on noise and config
   const sizeValue = sizeNoise(
-    worldX * RESOURCE_GENERATION_CONFIG.SIZE_NOISE_SCALE,
-    worldY * RESOURCE_GENERATION_CONFIG.SIZE_NOISE_SCALE,
+    normalizedCoords.x * RESOURCE_GENERATION_CONFIG.SIZE_NOISE_SCALE,
+    normalizedCoords.y * RESOURCE_GENERATION_CONFIG.SIZE_NOISE_SCALE,
   );
   const normalizedSize = (sizeValue + 1) / 2;
   const size = Math.floor(config.minSize + (config.maxSize - config.minSize) * normalizedSize);
 
-  // Generate depth
   const depthValue = depthNoise(
-    worldX * RESOURCE_GENERATION_CONFIG.DEPTH_NOISE_SCALE,
-    worldY * RESOURCE_GENERATION_CONFIG.DEPTH_NOISE_SCALE,
+    normalizedCoords.x * RESOURCE_GENERATION_CONFIG.DEPTH_NOISE_SCALE,
+    normalizedCoords.y * RESOURCE_GENERATION_CONFIG.DEPTH_NOISE_SCALE,
   );
   const normalizedDepth = (depthValue + 1) / 2;
   const depth = Math.max(1, Math.min(10, Math.floor(1 + normalizedDepth * 9)));
@@ -341,8 +375,8 @@ function generateResourceVein(
     config.preferredFormations[Math.floor(Math.random() * config.preferredFormations.length)];
 
   // Generate environmental properties
-  const terrain = generateTerrainType(worldX, worldY);
-  const climate = generateClimate(worldX, worldY);
+  const terrain = generateTerrainType(normalizedCoords.x, normalizedCoords.y);
+  const climate = generateClimate(normalizedCoords.x, normalizedCoords.y);
   const hazards = generateHazards(resourceType, depth);
 
   const resourceVein: ResourceVein = {
@@ -350,8 +384,8 @@ function generateResourceVein(
     type: resourceType,
 
     location: {
-      worldX,
-      worldY,
+      worldX: normalizedCoords.x,
+      worldY: normalizedCoords.y,
       chunkX,
       chunkY,
       cellX,
@@ -400,7 +434,7 @@ function generateResourceVein(
 
     metadata: {
       generated: new Date().toISOString(),
-      seed: Math.floor(worldX * 1000 + worldY), // Reproducible seed
+      seed: Math.floor(normalizedCoords.x * 1000 + normalizedCoords.y), // Reproducible seed
       version: '1.0.0',
       tags: [resourceType, grade, formation],
     },

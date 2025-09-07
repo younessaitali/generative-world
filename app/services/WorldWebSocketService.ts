@@ -33,9 +33,7 @@ export class WorldWebSocketService {
   constructor(
     private config: WebSocketConfig,
     private handlers: WebSocketEventHandlers,
-  ) {
-    // Initialize WebSocket service with config and handlers
-  }
+  ) {}
 
   async connect(): Promise<void> {
     if (this.ws?.readyState === WebSocket.OPEN || this.isConnecting) {
@@ -197,7 +195,6 @@ export class WorldWebSocketService {
 
     this.cleanup();
 
-    // Attempt reconnection if enabled
     if (this.config.autoReconnect && this.shouldReconnect()) {
       this.scheduleReconnect();
     }

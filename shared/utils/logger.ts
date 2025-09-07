@@ -90,7 +90,6 @@ class Logger {
   }
 }
 
-// singleton logger instance
 export const logger = new Logger();
 
 export const createServiceLogger = (serviceName: string) => ({

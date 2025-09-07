@@ -9,8 +9,6 @@ import type { ResourceConfig } from '#shared/types/world';
  * spawning, extraction, and economic gameplay.
  */
 export const RESOURCE_CONFIGS: Record<ResourceType, ResourceConfig> = {
-  // ===== COMMON METALS =====
-
   [ResourceType.IRON]: {
     type: ResourceType.IRON,
     baseValue: 8,
@@ -113,8 +111,6 @@ export const RESOURCE_CONFIGS: Record<ResourceType, ResourceConfig> = {
     realWorldUses: ['Soldering', 'Tinplate', 'Bronze alloys', 'Electronics', 'Food packaging'],
   },
 
-  // ===== PRECIOUS METALS =====
-
   [ResourceType.GOLD]: {
     type: ResourceType.GOLD,
     baseValue: 1800,
@@ -184,8 +180,6 @@ export const RESOURCE_CONFIGS: Record<ResourceType, ResourceConfig> = {
       'Jewelry',
     ],
   },
-
-  // ===== INDUSTRIAL METALS =====
 
   [ResourceType.NICKEL]: {
     type: ResourceType.NICKEL,
@@ -327,8 +321,6 @@ export const RESOURCE_CONFIGS: Record<ResourceType, ResourceConfig> = {
     ],
   },
 
-  // ===== RARE EARTH ELEMENTS =====
-
   [ResourceType.LITHIUM]: {
     type: ResourceType.LITHIUM,
     baseValue: 850,
@@ -443,8 +435,6 @@ export const RESOURCE_CONFIGS: Record<ResourceType, ResourceConfig> = {
     ],
   },
 
-  // ===== ENERGY RESOURCES =====
-
   [ResourceType.URANIUM]: {
     type: ResourceType.URANIUM,
     baseValue: 1400,
@@ -484,8 +474,6 @@ export const RESOURCE_CONFIGS: Record<ResourceType, ResourceConfig> = {
       'Research',
     ],
   },
-
-  // ===== INDUSTRIAL MINERALS =====
 
   [ResourceType.QUARTZ]: {
     type: ResourceType.QUARTZ,
@@ -552,8 +540,6 @@ export const RESOURCE_CONFIGS: Record<ResourceType, ResourceConfig> = {
       'Telecommunications',
     ],
   },
-
-  // ===== COMPOSITE DEPOSITS =====
 
   [ResourceType.POLYMETALLIC]: {
     type: ResourceType.POLYMETALLIC,

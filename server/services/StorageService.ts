@@ -6,6 +6,7 @@ import {
   GetObjectCommand,
   DeleteObjectCommand,
   ListObjectsV2Command,
+  ListBucketsCommand,
   type _Object,
 } from '@aws-sdk/client-s3';
 import type { ChunkData } from '#shared/types/world';
@@ -39,8 +40,7 @@ export class StorageService {
         forcePathStyle: true, // Required for MinIO
       });
 
-      // Test connection and ensure bucket exists
-      await this.ensureBucketExists();
+      await this.s3Client.send(new ListBucketsCommand({}));
       this.isConnected = true;
     } catch (error) {
       console.warn('⚠️ MinIO storage not available, proceeding without cold storage:', error);
@@ -56,7 +56,6 @@ export class StorageService {
       await this.s3Client.send(new HeadBucketCommand({ Bucket: this.bucketName }));
     } catch (error) {
       if (this.isNotFoundError(error)) {
-        // Bucket doesn't exist, create it
         try {
           await this.s3Client.send(new CreateBucketCommand({ Bucket: this.bucketName }));
         } catch (createError) {
@@ -92,7 +91,6 @@ export class StorageService {
 
     try {
       const key = this.getObjectKey(worldId, x, y);
-      const start = Date.now();
 
       const command = new GetObjectCommand({
         Bucket: this.bucketName,
@@ -105,8 +103,7 @@ export class StorageService {
         return null;
       }
 
-      // Read the data
-      const data = await this.streamToString(response.Body.transformToWebStream());
+      const data = await this.streamToString(response.Body as ReadableStream);
       const chunkData = JSON.parse(data);
 
       return chunkData;
@@ -128,7 +125,6 @@ export class StorageService {
     try {
       const key = this.getObjectKey(worldId, x, y);
       const serializedData = JSON.stringify(data);
-      const start = Date.now();
 
       const command = new PutObjectCommand({
         Bucket: this.bucketName,
@@ -144,7 +140,6 @@ export class StorageService {
       });
 
       await this.s3Client.send(command);
-
     } catch (error) {
       console.error('❌ Error writing to MinIO storage:', error);
     }
@@ -193,7 +188,6 @@ export class StorageService {
         const listResponse = await this.s3Client.send(listCommand);
 
         if (listResponse.Contents && listResponse.Contents.length > 0) {
-          // Delete objects in parallel
           const deletePromises = listResponse.Contents.map(async (object: _Object) => {
             if (object.Key) {
               const deleteCommand = new DeleteObjectCommand({
@@ -281,21 +275,20 @@ export class StorageService {
   }
 }
 
-// Global instance
-let storageService: StorageService | null = null;
+let storageServiceInstance: StorageService | null = null;
 
 /**
  * Get the global StorageService instance
  */
 export function getStorageService(): StorageService {
-  if (!storageService) {
-    storageService = new StorageService();
+  if (!storageServiceInstance) {
+    storageServiceInstance = new StorageService();
   }
-  return storageService;
+  return storageServiceInstance;
 }
 
 export async function closeStorageService(): Promise<void> {
-  if (storageService) {
-    storageService = null;
+  if (storageServiceInstance) {
+    storageServiceInstance = null;
   }
 }

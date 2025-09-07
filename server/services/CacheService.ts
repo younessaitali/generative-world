@@ -10,7 +10,7 @@ export class CacheService {
   private warn: ReturnType<typeof createServiceLogger>['warn'];
   private error: ReturnType<typeof createServiceLogger>['error'];
 
-  constructor(options?: { enableLogs?: boolean }) {
+  constructor(_options?: { enableLogs?: boolean }) {
     const serviceLogger = createServiceLogger('CacheService');
     this.log = serviceLogger.info;
     this.warn = serviceLogger.warn;
@@ -19,7 +19,6 @@ export class CacheService {
     this.initializeRedis();
   }
 
-  // Allow runtime toggling if needed
   setLogging(enabled: boolean): void {
     logger.setLevel(enabled ? 0 : 2);
   }
@@ -35,8 +34,15 @@ export class CacheService {
         enableReadyCheck: true,
         maxRetriesPerRequest: 3,
         lazyConnect: true,
-        connectTimeout: 5000,
-        commandTimeout: 3000,
+        connectTimeout: 15000,
+        commandTimeout: 30000,
+        enableOfflineQueue: true,
+        keepAlive: 30000,
+        autoResubscribe: true,
+        reconnectOnError: (error) => {
+          const targetError = 'READONLY';
+          return error.message.includes(targetError);
+        },
       });
 
       this.redis.on('connect', () => {
@@ -115,8 +121,6 @@ export class CacheService {
       const serializedData = JSON.stringify(data);
       const start = Date.now();
 
-      // Cache for 1 hour (3600 seconds) to prevent infinite memory growth
-      // In production, this could be longer or use LRU eviction
       await this.redis.setex(key, 3600, serializedData);
 
       const duration = Date.now() - start;
@@ -217,24 +221,23 @@ export class CacheService {
   }
 }
 
-// Global instance
-let cacheService: CacheService | null = null;
+let cacheServiceInstance: CacheService | null = null;
 
 /**
  * Get the global CacheService instance
  */
 export function getCacheService(): CacheService {
-  if (!cacheService) {
-    cacheService = new CacheService({
+  if (!cacheServiceInstance) {
+    cacheServiceInstance = new CacheService({
       enableLogs: false,
     });
   }
-  return cacheService;
+  return cacheServiceInstance;
 }
 
 export async function closeCacheService(): Promise<void> {
-  if (cacheService) {
-    await cacheService.close();
-    cacheService = null;
+  if (cacheServiceInstance) {
+    await cacheServiceInstance.close();
+    cacheServiceInstance = null;
   }
 }

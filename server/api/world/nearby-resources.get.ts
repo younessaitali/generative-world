@@ -5,8 +5,14 @@ import { resourceVeins } from '~~/server/database/schema';
 import { sql } from 'drizzle-orm';
 import { ensureChunksHavePersistedVeins } from '~~/server/utils/resource-generator';
 import { WORLD_CONFIG } from '~~/app/config/world.config';
-import { validateWorldCoordinates } from '~~/server/utils/validation';
 import { logger } from '#shared/utils/logger';
+import {
+  normalizeWorldCoordinates,
+  assertValidCoordinates,
+  MIN_RESOURCE_DISTANCE,
+  type WorldCoordinate,
+  calculateDistance,
+} from '#shared/utils/coordinates';
 
 const nearbyResourcesSchema = z.object({
   x: z.coerce.number(),
@@ -15,38 +21,31 @@ const nearbyResourcesSchema = z.object({
   resourceType: z.string().optional(),
 });
 
-function getChunksInRadius(x: number, y: number, radius: number, chunkSize: number) {
-  const minChunkX = Math.floor((x - radius) / chunkSize);
-  const maxChunkX = Math.floor((x + radius) / chunkSize);
-  const minChunkY = Math.floor((y - radius) / chunkSize);
-  const maxChunkY = Math.floor((y + radius) / chunkSize);
-
-  const chunks = [];
-  for (let chunkX = minChunkX; chunkX <= maxChunkX; chunkX++) {
-    for (let chunkY = minChunkY; chunkY <= maxChunkY; chunkY++) {
-      chunks.push({ chunkX, chunkY });
-    }
-  }
-  return chunks;
-}
-
 export default defineValidatedEventHandler({ query: nearbyResourcesSchema }, async (event) => {
   const { x, y, radius, resourceType } = event.context.validated.query;
   const worldId = event.context.player.worldId;
 
   try {
-    validateWorldCoordinates(x, y);
-    const requiredChunks = getChunksInRadius(x, y, radius, WORLD_CONFIG.chunk.size);
+    assertValidCoordinates(x, y);
+    const normalizedCoords = normalizeWorldCoordinates(x, y);
+
+    const requiredChunks = getChunksInRadius(
+      normalizedCoords.x,
+      normalizedCoords.y,
+      radius,
+      WORLD_CONFIG.chunk.size,
+    );
 
     await ensureChunksHavePersistedVeins(requiredChunks, worldId, WORLD_CONFIG.chunk.size);
 
-    const queryPoint = sql`ST_SetSRID(ST_MakePoint(${x}, ${y}), 4326)`;
+    const queryPoint = sql`ST_SetSRID(ST_MakePoint(${normalizedCoords.x}, ${normalizedCoords.y}), 4326)`;
 
     let whereClause = sql`ST_DWithin(${resourceVeins.centerPoint}, ${queryPoint}, ${radius}) AND ${resourceVeins.worldId} = ${worldId}`;
 
     if (resourceType) {
       whereClause = sql`${whereClause} AND ${resourceVeins.resourceType} = ${resourceType}`;
     }
+
     const nearbyVeins = await db
       .select({
         id: resourceVeins.id,
@@ -67,11 +66,47 @@ export default defineValidatedEventHandler({ query: nearbyResourcesSchema }, asy
       .from(resourceVeins)
       .where(whereClause)
       .orderBy(sql`ST_Distance(${resourceVeins.centerPoint}, ${queryPoint})`);
+
+    // The resource generator should prevent duplicates, but as a safeguard,
+    // we perform a de-duplication step here based on MIN_RESOURCE_DISTANCE.
+    // This is a temporary measure until the generation logic is fully verified.
+    const deduplicatedVeins: typeof nearbyVeins = [];
+    for (const vein of nearbyVeins) {
+      const currentCoord: WorldCoordinate = { x: vein.centerX, y: vein.centerY };
+
+      const isDuplicate = deduplicatedVeins.some((existingVein) => {
+        const existingCoord: WorldCoordinate = {
+          x: existingVein.centerX,
+          y: existingVein.centerY,
+        };
+        return calculateDistance(currentCoord, existingCoord) < MIN_RESOURCE_DISTANCE;
+      });
+
+      if (!isDuplicate) {
+        const normalizedVeinCoords = normalizeWorldCoordinates(vein.centerX, vein.centerY);
+        deduplicatedVeins.push({
+          ...vein,
+          centerX: normalizedVeinCoords.x,
+          centerY: normalizedVeinCoords.y,
+        });
+      }
+    }
+
     return {
       success: true,
-      query: { x, y, radius, resourceType },
-      totalFound: nearbyVeins.length,
-      resources: nearbyVeins,
+      query: {
+        x: normalizedCoords.x,
+        y: normalizedCoords.y,
+        radius,
+        resourceType,
+      },
+      totalFound: deduplicatedVeins.length,
+      resources: deduplicatedVeins,
+      deduplicationInfo: {
+        originalCount: nearbyVeins.length,
+        deduplicatedCount: deduplicatedVeins.length,
+        removedCount: nearbyVeins.length - deduplicatedVeins.length,
+      },
     };
   } catch (error) {
     logger.error('Failed to query nearby resources', {

@@ -16,8 +16,8 @@ export const databaseRetryPolicy = retry(handleAll, {
 });
 
 export const databaseCircuitBreakerPolicy = circuitBreaker(handleAll, {
-  halfOpenAfter: 30 * 1000, // 30 seconds
-  breaker: new ConsecutiveBreaker(5), // 5 consecutive failures
+  halfOpenAfter: 10 * 1000, // 10 seconds
+  breaker: new ConsecutiveBreaker(10), // 10 consecutive failures
 });
 
 export const databasePolicy = wrap(databaseRetryPolicy, databaseCircuitBreakerPolicy);

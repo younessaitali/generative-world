@@ -15,6 +15,13 @@
       "when": 1754926748119,
       "tag": "0001_lean_jane_foster",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1757260082974,
+      "tag": "0002_nosy_texas_twister",
+      "breakpoints": true
     }
   ]
 }

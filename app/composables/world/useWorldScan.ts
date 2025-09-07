@@ -53,13 +53,12 @@ export function useWorldScan() {
         },
       });
 
-      // Convert API response to our UI format
       const resources: Array<{ type: ResourceType; abundance: number }> = [];
 
       if (response.discovered) {
         resources.push({
           type: response.discovered.type,
-          abundance: Math.round(response.discovered.quality.purity * 100), // Convert to percentage
+          abundance: Math.round(response.discovered.quality.purity * 100),
         });
       }
 

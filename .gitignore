@@ -25,3 +25,4 @@ logs
 
 # Performance analysis artifacts
 .perf
+/docs/

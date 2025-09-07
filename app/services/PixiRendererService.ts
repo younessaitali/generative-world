@@ -31,6 +31,8 @@ export class PixiRendererService {
   private chunks = new Map<string, PixiChunk>();
   private chunkLayer: Container | null = null;
   private extractorLayer: Container | null = null;
+  private previewLayer: Container | null = null;
+  private previewSprite: Sprite | null = null;
   private extractorSprites = new Map<string, PixiExtractorSprite>();
   private worldContainer: Container | null = null;
   private container: HTMLElement | null = null;
@@ -40,6 +42,7 @@ export class PixiRendererService {
   private unknownTexture: Texture | null = null;
   private resourceTextures = new Map<number, Texture>();
   private extractorTextures = new Map<number, Texture>();
+  private previewTextures = new Map<string, Texture>();
   private config: WorldConfig;
   private logger = createServiceLogger('PixiRendererService');
   private stats: RendererStats = {
@@ -80,6 +83,8 @@ export class PixiRendererService {
 
       this.extractorLayer = new Container();
       this.worldContainer.addChild(this.extractorLayer);
+      this.previewLayer = new Container();
+      this.worldContainer.addChild(this.previewLayer);
 
       await this.createTextures();
 
@@ -208,6 +213,25 @@ export class PixiRendererService {
     return this.app.renderer.generateTexture(graphics);
   }
 
+  private createPreviewTexture(color: number, alpha: number): Texture {
+    if (!this.app) throw new Error('PixiJS app not initialized');
+    const key = `${color}:${alpha}`;
+    const existing = this.previewTextures.get(key);
+    if (existing) return existing;
+
+    const cellSize = this.config.chunk.cellSize;
+    const size = Math.max(8, cellSize * 0.7);
+    const offset = (cellSize - size) / 2;
+
+    const g = new Graphics();
+    g.roundRect(offset, offset, size, size, 2);
+    g.fill({ color, alpha });
+
+    const tex = this.app.renderer.generateTexture(g);
+    this.previewTextures.set(key, tex);
+    return tex;
+  }
+
   setCameraTransform(x: number, y: number, zoom: number): void {
     if (!this.app || !this.worldContainer) {
       this.logger.warn(
@@ -279,7 +303,6 @@ export class PixiRendererService {
 
     if (!existingChunk) {
       this.logger.warn('Cannot update chunk - chunk not found', 'updateChunk', { chunkKey });
-      // If chunk doesn't exist, add it instead
       this.addChunk(coordinate, terrain, resources);
       return;
     }
@@ -329,7 +352,6 @@ export class PixiRendererService {
   updateVisibleChunks(visibleChunks: ChunkCoordinate[]): void {
     const visibleKeys = new Set(visibleChunks.map((c) => `${c.chunkX},${c.chunkY}`));
 
-    // Remove chunks that are no longer visible
     for (const [chunkKey] of this.chunks) {
       if (!visibleKeys.has(chunkKey)) {
         const coords = chunkKey.split(',').map(Number);
@@ -356,7 +378,6 @@ export class PixiRendererService {
   }
 
   private getMemoryUsage(): number {
-    // Rough estimate: chunks * sprites per chunk * estimated bytes per sprite
     return this.chunks.size * this.config.chunk.size * this.config.chunk.size * 100;
   }
 
@@ -504,7 +525,6 @@ export class PixiRendererService {
           container.addChild(sprite);
           sprites.push(sprite);
         } else {
-          // Log when no texture is found
           this.logger.warn('No texture found for terrain type', 'createChunk', {
             terrainType,
             row,
@@ -629,9 +649,40 @@ export class PixiRendererService {
     this.worldContainer = null;
     this.chunkLayer = null;
     this.extractorLayer = null;
+    this.previewLayer = null;
+    this.previewSprite = null;
     this.container = null;
     this.unknownTexture = null;
+    this.previewTextures.clear();
 
     this.logger.info('PixiJS renderer destroyed successfully', 'destroy');
+  }
+
+  setPlacementPreview(x: number, y: number, color: number, valid: boolean): void {
+    if (!this.previewLayer) return;
+
+    const alpha = valid ? 0.35 : 0.35;
+    const tex = this.createPreviewTexture(color, alpha);
+    if (!this.previewSprite) {
+      this.previewSprite = new Sprite(tex);
+      this.previewSprite.anchor.set(0.5);
+      this.previewLayer.addChild(this.previewSprite);
+    } else {
+      this.previewSprite.texture = tex;
+    }
+
+    const worldX = x * this.config.chunk.cellSize + this.config.chunk.cellSize / 2;
+    const worldY = y * this.config.chunk.cellSize + this.config.chunk.cellSize / 2;
+
+    this.previewSprite.position.set(worldX, worldY);
+    this.previewSprite.tint = valid ? 0x2ecc71 : 0xe74c3c;
+    this.previewSprite.alpha = 0.9;
+    this.previewSprite.visible = true;
+  }
+
+  hidePlacementPreview(): void {
+    if (this.previewSprite) {
+      this.previewSprite.visible = false;
+    }
   }
 }

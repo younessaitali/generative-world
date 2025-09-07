@@ -1,9 +1,5 @@
 import { ExtendedTerrainType } from '../types/world';
 
-/**
- * Shared terrain utilities used by both frontend and backend
- */
-
 export function isValidTerrainType(value: string): value is ExtendedTerrainType {
   return Object.values(ExtendedTerrainType).includes(value as ExtendedTerrainType);
 }
@@ -35,12 +31,10 @@ export function analyzeTerrainDistribution(grid: ExtendedTerrainType[][]) {
   const counts: Record<ExtendedTerrainType, number> = {} as Record<ExtendedTerrainType, number>;
   const total = grid.length * grid[0].length;
 
-  // Initialize counts
   for (const terrainType of Object.values(ExtendedTerrainType)) {
     counts[terrainType] = 0;
   }
 
-  // Count occurrences
   for (const row of grid) {
     for (const cell of row) {
       counts[cell]++;

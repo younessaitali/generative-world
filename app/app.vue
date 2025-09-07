@@ -1,4 +1,6 @@
 <script setup lang="ts">
+import { usePlayerStore } from '~/composables/usePlayer';
+
 useHead({
   title: 'Generative World Explorer',
   meta: [
@@ -14,7 +16,6 @@ const { initializePlayer } = usePlayerStore();
 onMounted(async () => {
   try {
     await initializePlayer();
-    console.log('Player system initialized successfully');
   } catch (initError) {
     console.error('Failed to initialize player system:', initError);
   }

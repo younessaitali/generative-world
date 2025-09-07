@@ -18,10 +18,10 @@ function getPoolConfig(): PoolConfig {
     max: Number(process.env.DB_POOL_MAX) || (isProduction ? 50 : 20),
     min: Number(process.env.DB_POOL_MIN) || 5,
 
-    idleTimeoutMillis: Number(process.env.DB_IDLE_TIMEOUT) || 30000,
-    connectionTimeoutMillis: Number(process.env.DB_CONNECTION_TIMEOUT) || 5000,
-    statement_timeout: Number(process.env.DB_STATEMENT_TIMEOUT) || 10000,
-    query_timeout: Number(process.env.DB_QUERY_TIMEOUT) || 8000,
+    idleTimeoutMillis: Number(process.env.DB_IDLE_TIMEOUT) || 120000,
+    connectionTimeoutMillis: Number(process.env.DB_CONNECTION_TIMEOUT) || 20000,
+    statement_timeout: Number(process.env.DB_STATEMENT_TIMEOUT) || 60000,
+    query_timeout: Number(process.env.DB_QUERY_TIMEOUT) || 45000,
 
     allowExitOnIdle: true,
 

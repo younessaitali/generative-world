@@ -1,4 +1,5 @@
 import type { Camera, CameraEvent } from '#shared/types/world';
+import { normalizeWorldCoordinates, type WorldCoordinate } from '#shared/utils/coordinates';
 
 export interface UseCameraOptions {
   initialX?: number;
@@ -21,8 +22,9 @@ export function useCamera(options: UseCameraOptions = {}) {
   const zoomSensitivity = options.zoomSensitivity ?? 0.001;
 
   const setPosition = (x: number, y: number) => {
-    camera.value.x = x;
-    camera.value.y = y;
+    const normalized = normalizeWorldCoordinates(x, y);
+    camera.value.x = normalized.x;
+    camera.value.y = normalized.y;
   };
 
   const setZoom = (zoom: number) => {
@@ -72,14 +74,13 @@ export function useCamera(options: UseCameraOptions = {}) {
     camera.value.zoom = options.initialZoom ?? 1.0;
   };
 
-  const screenToWorld = (screenX: number, screenY: number) => {
-    return {
-      x: (screenX - camera.value.x) / camera.value.zoom,
-      y: (screenY - camera.value.y) / camera.value.zoom,
-    };
+  const screenToWorld = (screenX: number, screenY: number): WorldCoordinate => {
+    const worldX = (screenX - camera.value.x) / camera.value.zoom;
+    const worldY = (screenY - camera.value.y) / camera.value.zoom;
+    return normalizeWorldCoordinates(worldX, worldY);
   };
 
-  const worldToScreen = (worldX: number, worldY: number) => {
+  const worldToScreen = (worldX: number, worldY: number): WorldCoordinate => {
     return {
       x: worldX * camera.value.zoom + camera.value.x,
       y: worldY * camera.value.zoom + camera.value.y,

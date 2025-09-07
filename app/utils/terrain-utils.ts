@@ -1,7 +1,6 @@
 import { ExtendedTerrainType } from '#shared/types/world';
 import { TERRAIN_CONFIGS } from '~/config/terrain.config';
 
-// Import shared utilities (these will be used from shared folder in auto-imports)
 import {
   isValidTerrainType as _isValidTerrainType,
   isWaterTerrain as _isWaterTerrain,
@@ -10,7 +9,6 @@ import {
   getTerrainSummary as _getTerrainSummary,
 } from '#shared/utils/terrain';
 
-// Frontend-specific terrain utilities that require terrain config
 export function getTerrainConfigSafe(terrainType: ExtendedTerrainType) {
   const config = TERRAIN_CONFIGS[terrainType];
   if (!config) {

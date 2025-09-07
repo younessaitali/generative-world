@@ -6,24 +6,21 @@ export interface PlayerStatusResponse {
 }
 
 export async function fetchPlayerStatus(): Promise<PlayerStatusResponse> {
-  const response = await $fetch<PlayerStatusResponse>('/api/player/status');
-  return response;
+  return await $fetch<PlayerStatusResponse>('/api/player/status');
 }
 
 export async function updatePlayerData(data: Partial<PlayerData>): Promise<PlayerStatusResponse> {
-  const response = await $fetch<PlayerStatusResponse>('/api/player/update', {
+  return await $fetch<PlayerStatusResponse>('/api/player/update', {
     method: 'POST',
     body: data,
   });
-  return response;
 }
 
 export async function syncPlayerInventory(
   inventory: Record<string, number>,
 ): Promise<PlayerStatusResponse> {
-  const response = await $fetch<PlayerStatusResponse>('/api/player/inventory', {
+  return await $fetch<PlayerStatusResponse>('/api/player/inventory', {
     method: 'POST',
     body: { inventory },
   });
-  return response;
 }

@@ -19,7 +19,6 @@ export function useWorldInteraction(
 
   const emitCameraEvent = (event: CameraEvent) => {
     cameraEvents.value.push(event);
-    // Clear events after processing to prevent memory leaks
     nextTick(() => {
       cameraEvents.value = [];
     });
@@ -31,7 +30,6 @@ export function useWorldInteraction(
     isDragging.value = true;
     lastMousePosition.value = { x: event.clientX, y: event.clientY };
 
-    // Prevent text selection during drag
     event.preventDefault();
   };
 

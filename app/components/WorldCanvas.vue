@@ -5,14 +5,15 @@ import { useScanInteraction } from '~/composables/world/useScanInteraction';
 import { useExtractorManager } from '~/composables/world/useExtractorManager';
 import { useExtractorLoader } from '~/composables/world/useExtractorLoader';
 import type { ExtractorPlacement } from '~/composables/world/useExtractorPlacement';
+import { usePlacementPreview } from '~/composables/world/usePlacementPreview';
+import type { ResourceType } from '#shared/types/world';
 
 const canvasContainer = useTemplateRef<HTMLElement>('canvasContainer');
 
-// Only initialize world manager on client side
 const worldManager = import.meta.client
   ? useWorldManager(canvasContainer, {
       rendererConfig: {
-        width: 800, // Default fallback values
+        width: 800,
         height: 600,
         backgroundColor: 0x1a1a1a,
       },
@@ -31,6 +32,18 @@ const scanInteraction = import.meta.client
 
 const extractorManager = import.meta.client ? useExtractorManager() : null;
 const extractorLoader = import.meta.client ? useExtractorLoader() : null;
+
+const selectedResource = ref<ResourceType | null>(null);
+const placementPreview = import.meta.client
+  ? usePlacementPreview(canvasContainer, selectedResource, {
+      currentScanResult: scanInteraction?.lastScanResult,
+      renderer: {
+        setPlacementPreview: (x, y, color, valid) =>
+          worldManager?.renderer?.setPlacementPreview(x, y, color, valid),
+        hidePlacementPreview: () => worldManager?.renderer?.hidePlacementPreview(),
+      },
+    })
+  : null;
 
 onMounted(async () => {
   if (!worldManager) return;
@@ -67,7 +80,6 @@ onMounted(async () => {
   }
 });
 
-// Expose for debugging (only on client-side)
 if (import.meta.dev && import.meta.client && worldManager) {
   onMounted(() => {
     // @ts-expect-error - Exposing for debugging in development
@@ -77,6 +89,10 @@ if (import.meta.dev && import.meta.client && worldManager) {
 
 const handleCloseScanResult = () => {
   scanInteraction?.clearScanResult();
+  selectedResource.value = null;
+  if (worldManager?.renderer) {
+    worldManager.renderer.hidePlacementPreview();
+  }
 };
 
 const handleExtractorPlaced = (extractor: ExtractorPlacement) => {
@@ -90,7 +106,18 @@ const handleExtractorPlaced = (extractor: ExtractorPlacement) => {
   }
 
   scanInteraction?.clearScanResult();
+  if (worldManager?.renderer) {
+    worldManager.renderer.hidePlacementPreview();
+  }
 };
+
+watch(
+  () => scanInteraction?.lastScanResult?.value,
+  (result) => {
+    selectedResource.value = result?.discovered?.type ?? null;
+  },
+  { immediate: true },
+);
 </script>
 
 <template>
@@ -121,7 +148,18 @@ const handleExtractorPlaced = (extractor: ExtractorPlacement) => {
         :is-scanning="scanInteraction.isScanning?.value"
         :scan-error="scanInteraction.scanError?.value"
         @close="handleCloseScanResult"
+        @placing-start="worldManager?.renderer?.hidePlacementPreview()"
         @extractor-placed="handleExtractorPlaced"
+      />
+
+      <!-- Placement preview tooltip -->
+      <PlacementTooltip
+        v-if="placementPreview && scanInteraction?.lastScanResult?.value?.discovered"
+        :is-active="placementPreview.isActive.value"
+        :is-valid="placementPreview.isValid.value"
+        :message="placementPreview.message.value"
+        :cursor="placementPreview.cursor.value"
+        :resource-type="selectedResource"
       />
 
       <!-- Instructions overlay -->
