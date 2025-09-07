@@ -184,13 +184,6 @@ Everything should still run (with reduced features) if Redis is unavailable.
 
 ---
 
-## 🧪 Testing Philosophy (Lightweight)
-- Selective unit tests for core utilities
-- Intent is confidence while refactoring, not exhaustive coverage
-- Playwright used to sanity-check rendering + socket interplay
-
----
-
 ## 🙌 Contributing (Totally Optional)
 If you want to poke around or improve something:
 
