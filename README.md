@@ -1,265 +1,223 @@
-# The Generative World Explorer 🌍
+# Generative World Explorer (Learning Project)
 
-A high-performance, procedurally generated infinite world explorer built with **Nuxt.js 4**, **WebGL**, and **real-time streaming**. Experience seamless exploration of vast, dynamically generated terrains with advanced caching and optimizations.
+This is a personal / exploratory sandbox for learning about procedural generation, WebGL rendering (PixiJS), real‑time streaming patterns, and backend data persistence. It’s not a polished product or a production-ready game—just a pet project that grew while experimenting with ideas. If anything here helps you learn too: awesome.
 
-## ✨ Features
+> Disclaimer
+> Expect rough edges, rewrites, dead ends, and over‑engineering in places where I was exploring trade‑offs. APIs, structures, and naming may change without warning. Performance claims are context-specific and mostly measured locally.
 
-### 🌎 **Infinite Procedural World**
+---
 
-- **10,000×10,000+ grid** support with seamless exploration
-- **Perlin/Simplex noise-based** terrain generation
-- **Multi-layer generation** system (terrain, biomes, features)
-- **Chunk-based architecture** (16×16 cells per chunk)
+## 🙋 Why This Exists
 
-### 🚀 **High-Performance Rendering**
+I wanted to answer a few questions for myself:
 
-- **WebGL-powered rendering** with PixiJS (10-100x performance improvement over Canvas 2D)
-- **Level-of-Detail (LOD)** system for zoom-based optimization
-- **Hybrid rendering architecture**: WebGL terrain + Canvas effects + DOM UI
-- **60 FPS** smooth performance even with massive worlds
+- How far can a browser reasonably go with chunked procedural terrain + WebGL?
+- How to layer caching (memory → Redis → persistence) without overcomplicating the flow?
+- What’s a clean-ish way to stream world data via WebSockets while avoiding flooding?
+- How to evolve a prototype into something slightly more structured without killing iteration speed?
 
-### ⚡ **Real-Time Streaming**
+This repository is the evolving answer.
 
-- **WebSocket-based** chunk streaming for minimal latency
-- **Predictive loading** - chunks load before you need them
-- **Priority-based delivery** (viewport center → adjacent → prefetch ring)
-- **Multi-level caching** (browser memory → IndexedDB → Redis → persistent storage)
+---
 
-### 🎮 **Interactive Experience**
+## 🧪 What This Project Is (and Isn’t)
 
-- **Smooth pan & zoom** with mouse/touch controls
-- **Fog of War** discovery mechanics
-- **Real-time cache visualization** (blue = undiscovered, colored = cached)
-- **Responsive UI** with inventory and interaction panels
-- **Automatic fallback** when Docker/Redis unavailable
+| This Project IS | This Project is NOT |
+|-----------------|---------------------|
+| A learning playground | A finished game |
+| An experiment in architectural patterns | A framework |
+| A place to try ideas (sometimes twice) | Security audited |
+| Procedural rendering + streaming exploration | Guaranteed stable |
+| A reference for some implementation approaches | The “right” way to do it |
 
-## 🏗️ **Architecture**
+Use anything here at your own risk; feel free to adapt or simplify.
 
-### **Tech Stack**
+---
 
-- **Frontend**: Nuxt.js 4, Vue 3, TypeScript, PixiJS 8.11, TailwindCSS
-- **Backend**: Nitro server, WebSockets, Redis 7 caching
-- **Libraries**: Pinia (state), VueUse (composables), Simplex-noise, Zod validation
-- **Infrastructure**: Docker Compose, Redis Alpine, auto-scaling development setup
+## ✨ Current Features (Experimental)
 
-### **Performance Optimizations**
+### 🌍 Procedural World (Chunked)
+- Infinite-style grid concept (tested up to ~10,000 × 10,000 logical coordinates)
+- Simplex/Perlin-inspired noise layers (terrain + biome placeholders)
+- 16×16 chunk architecture (tunable)
+- Multi-pass generation pipeline (still evolving)
 
-- **WebGL GPU acceleration** for terrain rendering
-- **Chunk-based lazy loading** - only generate what's visible
-- **Server-side Redis caching** - instant chunk retrieval
-- **Client-side memory caching** - zero-latency pan/zoom
-- **Predictive prefetching** - anticipates user movement
+### 🚀 Rendering
+- PixiJS (WebGL) renderer replacing earlier Canvas prototype
+- Zoom-based Level of Detail (early experiments)
+- Hybrid layering: GPU for terrain, DOM/UI for overlays
+- Target: smooth feel on modest hardware (not “guaranteed 60 FPS everywhere”)
 
-### **Development Phases**
+### 🔄 Streaming & Caching
+- WebSocket channel for prioritized chunk delivery
+- Basic priority queue: center → adjacent → prefetch ring
+- Memory cache (browser) + Redis (optional) + persistence (WIP structure)
+- Graceful fallback when Redis is absent
 
-- ✅ **Phase 1**: Core rendering & interaction (pan, zoom, basic terrain)
-- ✅ **Phase 2**: Real-time streaming & caching optimizations
-- ✅ **Phase 3**: WebGL upgrade & performance boost (10-100x improvement)
-- ✅ **Phase 4**: Production-ready architecture with Redis & Docker
-- 🚧 **Phase 5**: Resource extraction gameplay mechanics
+### 🎮 Interactivity (Basic)
+- Pan + zoom camera
+- “Fog” style undiscovered state rendering
+- (WIP) Resource / scanning systems (early scaffolding)
 
-## 🚀 **Quick Start**
+---
 
-### **Prerequisites**
+## 🏗️ Architecture Overview
 
-- Node.js 18+ and pnpm installed
-- Docker (for Redis caching)
+### Tech Stack (Pragmatic Choices)
+- **Frontend**: Nuxt 4, Vue 3, TypeScript, PixiJS 8, Tailwind
+- **Backend**: Nitro (server runtime), WebSockets, Redis (optional)
+- **Data / Validation**: Zod, chunk-based world model
+- **Infra (dev)**: Docker Compose (for Redis, DB experiments)
+- **Testing**: Vitest + Playwright (selective)
 
-### **Installation**
+### Design Notes
+- “Services” used to isolate rendering + socket logic
+- Explicit separation of generation vs streaming vs rendering concerns
+- Favor small utility functions over large monolith classes
+- Some code purposely verbose for clarity while learning
+
+---
+
+## ⚙️ Performance Notes (Contextual)
+These numbers are rough, local, and situational—they’re here as a snapshot of experiments, not guarantees:
+
+| Aspect | Observed (Local) |
+|--------|------------------|
+| WebGL vs old Canvas | 10–100x improvement in large views |
+| Chunk generation | ~1ms (simple noise pass) |
+| Serialized chunk payload | ~1KB (varies) |
+| WebSocket latency (loopback) | <10ms typical |
+| Cache hit rate (with Redis active) | >90% after movement |
+
+---
+
+## 🚧 Roadmap (Exploratory / Subject to Deletion)
+- [ ] Resource vein generation & spatial extraction rules
+- [ ] Scanning mechanic (area-based reveal)
+- [ ] Extractor placement + passive resource trickle
+- [ ] Upgrade / tech progression prototype
+- [ ] Spatial persistence experiments (PostGIS / geometry indexes)
+- [ ] Experiment: move heavy generation to a Go microservice
+- [ ] Biome layering & climate gradients
+- [ ] Event-driven streaming refinements
+
+Later / Maybe:
+- Multiplayer sync experiments
+- Height maps / pseudo-3D shading
+- Touch/mobile control adaptation
+
+---
+
+## 🧩 Implementation Highlights
+
+### Rendering Pipeline (Simplified)
+1. Compute viewport world bounds
+2. Determine required chunk keys
+3. Resolve from in-memory → Redis → generate
+4. Stream + render prioritized center-first
+5. Prefetch surrounding ring opportunistically
+
+### Chunk Generation (Current Pass)
+- Noise sampling → terrain band mapping
+- Color mapping via utility tables
+- Room to add: moisture, temperature, classification richness
+
+### WebSocket Flow
+- Client: sends viewpoint updates (throttled)
+- Server: enqueues required chunks by priority
+- Delivery: small batches to avoid frame drops
+- Retries: basic reconnect / resync (primitive but functional)
+
+---
+
+## 🛠️ Scripts
 
 ```bash
-# Clone the repository
-git clone <your-repo-url>
-cd generative-world-explorer
-
-# Install dependencies
-pnpm install
-```
-
-### **Development Setup**
-
-#### **Option 1: Full Stack (Recommended)**
-
-```bash
-# Start Redis + Development server in one command
-pnpm dev:full
-```
-
-#### **Option 2: Manual Setup**
-
-```bash
-# Start Redis container
-pnpm redis:start
-
-# Start development server (separate terminal)
+# Development
 pnpm dev
+pnpm dev:full          # Starts Redis + dev server
 
-# View Redis logs (optional)
+# Redis helpers
+pnpm redis:start
+pnpm redis:stop
 pnpm redis:logs
 
-# Stop Redis when done
-pnpm redis:stop
+# Production build preview
+pnpm build
+pnpm preview
 ```
 
-The development server runs on **`http://localhost:3000`** with hot module replacement.
+---
 
-### **Environment Configuration**
+## 🗂️ Project Structure (Excerpt)
 
-Create a `.env` file for custom Redis configuration:
+```
+app/
+  components/
+  composables/
+  services/
+  pages/
+server/
+  api/
+  routes/
+  utils/
+  services/
+shared/
+  types/
+  utils/
+drizzle/
+  migrations/
+scripts/
+```
+
+---
+
+## 🧭 Environment
+
+Create a `.env` if customizing Redis:
 
 ```bash
 REDIS_URL=redis://localhost:6379
 ```
 
-## 🎮 **Usage**
-
-1. **Explore**: Click and drag to pan around the infinite world
-2. **Zoom**: Use mouse wheel to zoom in/out for different detail levels
-3. **Discover**: Watch blue "undiscovered" areas transform into generated terrain
-4. **Performance**: Monitor the real-time cache performance in the UI
-
-## 📦 **Scripts**
-
-```bash
-# Development
-pnpm dev              # Start Nuxt development server
-pnpm dev:full         # Start Redis + dev server together
-
-# Redis Management
-pnpm redis:start      # Start Redis container
-pnpm redis:stop       # Stop Redis container
-pnpm redis:logs       # View Redis logs
-
-# Production
-pnpm build            # Build for production
-pnpm preview          # Preview production build
-```
-
-## 🗂️ **Project Structure**
-
-```
-app/
-├── components/
-│   └── WorldCanvas.vue           # Main WebGL canvas component
-├── composables/
-│   ├── useWorldStore.ts         # Pinia world state management
-│   └── world/                   # World-specific composables
-│       ├── useCamera.ts         # Camera controls & viewport
-│       ├── useWorldChunks.ts    # Chunk management & caching
-│       ├── useWorldRenderer.ts  # WebGL rendering logic
-│       └── useWorldWebSocket.ts # Real-time streaming
-├── services/
-│   ├── PixiRendererService.ts   # WebGL/PixiJS rendering service
-│   └── WorldWebSocketService.ts # WebSocket communication
-├── types/
-│   └── world.ts                 # TypeScript type definitions
-├── config/
-│   └── world.config.ts          # World generation configuration
-└── pages/
-    └── index.vue                # Main application page
-
-server/
-├── api/
-│   ├── world/
-│   │   └── chunk.get.ts         # Chunk generation API
-│   └── cache.get.ts             # Cache status API
-├── routes/
-│   └── ws/
-│       └── world-stream.ts      # WebSocket streaming endpoint
-└── utils/
-    ├── redis.ts                 # Redis connection utilities
-    └── define-validated-event-handler.ts # Type-safe API handlers
-```
-
-## 🔧 **Technical Implementation**
-
-### **Rendering Pipeline**
-
-1. **Viewport Calculation**: Determine visible chunks based on camera position
-2. **Cache Check**: Look for chunks in browser memory → Redis → generate new
-3. **WebGL Rendering**: Use PixiJS for GPU-accelerated terrain rendering
-4. **Predictive Loading**: Prefetch chunks likely to be needed next
-
-### **Chunk Generation**
-
-- **Coordinates → Noise**: Use Simplex noise with chunk coordinates as seed
-- **Terrain Mapping**: Convert noise values to terrain types (water, grass, mountain)
-- **Caching Strategy**: Store in Redis with TTL for server-side performance
-- **Compression**: Use efficient binary formats for network transfer
-
-### **WebSocket Streaming**
-
-- **Viewport Updates**: Client sends camera position changes
-- **Priority Streaming**: Server sends chunks by priority (center → edges)
-- **Predictive Prefetching**: Surrounding chunks loaded in background
-- **Delta Updates**: Only send changed data, not full chunks
-- **Error Recovery**: Automatic reconnection and chunk re-request
-- **Distance-based Sorting**: Chunks streamed by proximity to camera
-
-## 🆕 **Latest Updates**
-
-### **Recently Completed**
-
-- ✅ **WebGL Rendering Engine**: Complete migration from Canvas 2D to PixiJS
-- ✅ **Production Docker Setup**: Redis containerization with health checks
-- ✅ **Smart Development Scripts**: Auto-detect Docker and graceful fallbacks
-- ✅ **Type-Safe Architecture**: Full TypeScript coverage across client/server
-- ✅ **Service-Oriented Design**: Modular renderer and WebSocket services
-
-### **Current State**
-
-- **Infinite world generation** working with Simplex noise
-- **Real-time WebSocket streaming** with priority-based delivery
-- **Multi-layer caching** (memory + Redis) for instant performance
-- **WebGL GPU acceleration** for massive scale rendering
-- **Production-ready** Docker development environment
-
-## 🚧 **Roadmap**
-
-### **Next Phase: Resource Extraction Game**
-
-- [ ] **Resource vein generation** in chunks (Iron, Copper, Gold)
-- [ ] **Scanning mechanics** to discover resources
-- [ ] **Extractor placement** and passive resource generation
-- [ ] **Tech tree & upgrade system** for strategic depth
-- [ ] **Go microservice** for large-scale geological simulation
-
-### **Future Enhancements**
-
-- [ ] **Multiplayer support** with shared world discovery
-- [ ] **Biome variety** (desert, tundra, forest) with unique features
-- [ ] **Dynamic world events** (weather, seasonal changes)
-- [ ] **Mobile optimization** with touch controls
-- [ ] **3D terrain rendering** with height maps
-
-## 📊 **Performance Benchmarks**
-
-### **Rendering Performance**
-
-- **Canvas 2D**: ~100 chunks at 30 FPS
-- **WebGL (PixiJS)**: ~10,000+ chunks at 60 FPS
-- **Memory Usage**: ~50MB for 1000 cached chunks
-- **GPU Acceleration**: 10-100x performance improvement
-
-### **Network & Caching**
-
-- **Network**: ~1KB per chunk with compression
-- **Generation**: ~1ms per chunk with Redis caching
-- **WebSocket Latency**: <10ms chunk streaming
-- **Cache Hit Rate**: >90% with Redis + memory layers
-
-## 🤝 **Contributing**
-
-1. Fork the repository
-2. Create a feature branch (`git checkout -b feature/amazing-feature`)
-3. Commit your changes (`git commit -m 'Add amazing feature'`)
-4. Push to the branch (`git push origin feature/amazing-feature`)
-5. Open a Pull Request
-
-## 📄 **License**
-
-This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
+Everything should still run (with reduced features) if Redis is unavailable.
 
 ---
 
-**Built with ❤️ using Nuxt.js, WebGL, and modern web technologies**
+## 🧪 Testing Philosophy (Lightweight)
+- Selective unit tests for core utilities
+- Intent is confidence while refactoring, not exhaustive coverage
+- Playwright used to sanity-check rendering + socket interplay
+
+---
+
+## 🙌 Contributing (Totally Optional)
+If you want to poke around or improve something:
+
+```bash
+git checkout -b tweak/something
+git commit -m "tweak: improve X"
+git push origin tweak/something
+```
+
+No formal process—open a PR if you think it helps learning or clarity.
+
+---
+
+## 🔒 Production Disclaimer
+This code hasn’t been hardened for:
+- Security threats
+- Multi-tenant isolation
+- Resource abuse
+- Persistence integrity under load
+
+Treat it as educational reference only.
+
+---
+
+## 📄 License
+MIT — feel free to reuse pieces, but validate approaches for your context.
+
+---
+
+Built as an evolving learning journey. If you find mistakes or a better pattern, that’s the point—iterate and improve.
